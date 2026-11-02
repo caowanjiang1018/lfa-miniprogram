@@ -1,0 +1,8 @@
+{
+  "name": "lfa_qwen",
+  "version": "1.0.0",
+  "description": "通义千问服务（与 lfaVerify 同源，只差环境变量）",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {}
+}

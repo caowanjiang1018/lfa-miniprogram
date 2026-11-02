@@ -1,0 +1,393 @@
+<view class="page">
+
+  <!-- 所属课题常显 -->
+  <view class="topicbar" wx:if="{{hasTopic}}">
+    <view class="row">
+      <text class="h3">所属课题：{{topic.name}}</text>
+      <text class="chip chip-info">第 {{topic.revision}} 版</text>
+    </view>
+    <text class="tiny">对象/场景：{{topic.target || '未填写'}}｜期望任务：{{topic.task || '未填写'}}</text>
+    <text class="tiny" wx:if="{{topic.claim}}">拟支持说法：{{topic.claim}}</text>
+  </view>
+
+  <view class="warnbox" wx:if="{{!hasTopic}}">
+    还没有课题。请先到「我的课题」填写保存后再核验。
+  </view>
+
+  <!-- 能力边界提示（需求 二） -->
+  <view class="boundarybox" wx:if="{{hasTopic}}">
+    <text class="statusbar-text">自动核验的能力边界</text>
+    <view style="margin-top:8rpx;">
+      自动核验仅覆盖在公开元数据库中有记录的外文文献。中文文献、中文学位论文、书籍、无 DOI 文献、部分预印本，
+      大概率无法自动核验，不代表文献虚假，统一进入人工核验流程，由你自行补充证据核对。
+    </view>
+    <view style="margin-top:8rpx;">
+      核验流程：通义千问【预处理提取】→ OpenAlex（优先）→ Crossref（降级）→
+      都没命中或判断为中文文献时，再由通义千问【联网检索兜底】。
+      千问给出的链接仍是线索，不等于已核实，需你自行打开确认。
+    </view>
+    <view style="margin-top:8rpx;">
+      全部请求经小程序云函数中转，API 密钥只存在云端环境变量，前端不直连外网接口、不持有任何密钥。
+    </view>
+  </view>
+
+  <view class="card" wx:if="{{hasTopic}}">
+    <view class="row">
+      <text class="h1">核验卡（{{cards.length}} 条）</text>
+      <view class="btn btn-small btn-ghost" bindtap="goImport">+ 导入 / 粘贴</view>
+    </view>
+    <view class="muted" style="margin-top:10rpx;">
+      每条文献给出三项独立结论，不合并成一个「可信度分数」。第 1 项「文献身份和题录」可发起真实外部来源核验。
+    </view>
+    <view class="btn-row" style="margin-top:14rpx;">
+      <view id="v-verify-all" class="btn btn-small" bindtap="verifyAll">
+        批量核验身份（本次最多 {{cards.length > 10 ? 10 : cards.length}} 条）
+      </view>
+      <view id="v-ping" class="btn btn-small btn-ghost" bindtap="pingCloud">云函数连通性自检</view>
+    </view>
+    <view class="tiny">
+      批量单次上限 10 条，条间约 1.2 秒间隔以防上游限流。核验只比对题录字段，不代表内容结论已被核实。
+    </view>
+    <view wx:if="{{staleCount > 0}}" class="warnbox" style="margin-top:14rpx;">
+      有 {{staleCount}} 张卡的初判基于旧版课题，已标记「需重新评估」，不会静默沿用。
+      <view id="v-rejudge-all" class="btn btn-small" style="margin-top:12rpx;" bindtap="reJudgeAll">全部按第 {{topic.revision}} 版重新初判</view>
+    </view>
+    <view wx:if="{{idnStaleCount > 0}}" class="warnbox" style="margin-top:14rpx;">
+      有 {{idnStaleCount}} 条自动身份核验结果基于旧版课题，同样已标记「需重新评估」，请重新核验后再引用。
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{hasTopic && cards.length === 0}}">
+    还没有导入文献。回到「开始」页点「核验已有文献」，粘贴 AI 给你的清单。
+    <view class="btn btn-small" style="margin-top:20rpx;" bindtap="goImport">去导入文献</view>
+  </view>
+
+  <block wx:for="{{cards}}" wx:key="id" wx:for-item="c">
+    <view class="card">
+      <!-- 卡片头：右上角【固定】展示核验结果，条目详情默认收起 -->
+      <view class="row">
+        <text class="h1">条目 {{c.no}}</text>
+        <view class="row" style="gap:8rpx;">
+          <text wx:if="{{c.stale}}" class="chip chip-warn">需重新评估</text>
+          <text class="chip {{c.isSample ? 'chip-warn' : 'chip-gray'}}">{{c.originLabel}}</text>
+          <text class="chip {{'chip-' + c.resultTone}}">{{c.resultIcon}} {{c.resultText}}</text>
+        </view>
+      </view>
+      <view class="text" style="margin-top:10rpx;font-weight:600;">{{c.title}}</view>
+      <view class="tiny" wx:if="{{c.fieldsBrief}}">{{c.fieldsBrief}}</view>
+      <view wx:if="{{c.isSample}}" class="warnbox" style="margin-top:12rpx;">
+        流程演示样例，非实时核验结果：本条目为占位内容，不含真实论文来源，不要用于正式引用练习。
+      </view>
+      <view wx:if="{{c.dupNote}}" class="warnbox" style="margin-top:12rpx;">{{c.dupNote}}</view>
+      <view wx:if="{{c.recommend}}" class="infobox" style="margin-top:12rpx;">
+        <text class="h3">系统检索推荐（原始推荐，不会被你的确认改写）</text>
+        <view class="tiny">检索服务：{{c.recommendSource}}｜检索式：{{c.recommend.query}}｜取得：{{c.recommend.retrievedAt}}</view>
+        <view class="tiny">阅读依据：{{c.recommendBasis}}</view>
+        <view class="tiny" wx:if="{{c.recommend.why}}">推荐理由：{{c.recommend.why}}</view>
+        <view class="tiny" wx:if="{{c.recommendUses}}">你加入时选择的用途：{{c.recommendUses}}</view>
+        <view class="tiny">推荐条目只说明公开库里有这条题录，不等于论文质量已核实。</view>
+      </view>
+      <view wx:if="{{c.stale}}" class="warnbox" style="margin-top:12rpx;">
+        本卡初判基于课题第 {{c.evalRevision}} 版，课题已更新到第 {{topic.revision}} 版，结论需重新评估。
+        <view id="v-rejudge-{{c.index}}" class="btn btn-small" style="margin-top:12rpx;" data-index="{{c.index}}" bindtap="reJudge">按当前课题重新初判</view>
+      </view>
+
+      <!-- 入口：始终可见，未核验过的条目才不会没有下手的地方 -->
+      <view class="btn-row" style="margin-top:12rpx;">
+        <view id="v-verify-{{c.index}}" class="btn btn-small" data-index="{{c.index}}" bindtap="verifyIdentity">
+          {{c.idnBusy ? '核验中…' : (c.idn ? '重新核验身份' : '核验身份（自动核验）')}}
+        </view>
+        <view id="v-expand-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="toggleCard">
+          {{c.expanded ? '收起详细核验内容' : '展开详细核验内容'}}
+        </view>
+      </view>
+      <view class="tiny" style="margin-top:6rpx;">{{c.idnBoundary || ''}}</view>
+
+      <!-- 核验结论概览：即使收起也能看到结论 -->
+      <block wx:if="{{c.hasEval}}">
+        <view class="statusbar {{'statusbar-' + c.resultTone}}" style="margin-top:12rpx;">
+          <text class="statusbar-text">{{c.resultIcon}} {{c.resultText}}</text>
+        </view>
+        <view class="tiny" wx:if="{{c.idn.statusDesc}}">判定含义：{{c.idn.statusDesc}}（{{c.idn.colorHint}}）</view>
+        <view class="tiny" wx:if="{{c.idn}}">
+          核验来源：{{c.idn.providerName}}｜取得 {{c.idn.fetchedAt}}｜HTTP {{c.idn.httpStatus}}｜方式 {{c.idn.method}}
+        </view>
+        <view class="tiny" wx:if="{{!c.idn}}">{{c.ev.identity.sourceMark}}</view>
+      </block>
+      <view class="warnbox" wx:else>该条尚未执行本地初判，请到「补充证据」保存后自动生成。</view>
+
+      <!-- 单一字段冲突：判定为通过，但差异必须人工确认（收起时也要看得见） -->
+      <view class="warnbox" wx:if="{{c.needsConfirm}}" style="margin-top:12rpx;">
+        <view>本次按「题名一致 + 仅 1 处不一致」判为核验通过，但差异仍需你确认：{{c.conflictNames}}</view>
+        <view wx:if="{{c.confirmedDiff}}" class="chip chip-ok" style="margin-top:8rpx;">已人工确认（{{c.confirmedDiffAt}}）</view>
+        <view wx:else class="btn btn-small btn-primary" id="v-ack-{{c.index}}" style="margin-top:8rpx;" data-index="{{c.index}}" bindtap="openIdentityDetail">
+          去确认这项差异
+        </view>
+      </view>
+
+      <!-- 核验成功后可补全：收起时也能看到 -->
+      <view wx:if="{{c.canFill}}" class="infobox" style="margin-top:12rpx;">
+        核验已拿到来源题录，可一键补全
+        <text wx:if="{{c.fillCount}}">（{{c.fillCount}} 项空字段）</text>
+        <text wx:if="{{c.fillConflictCount}}">（另有 {{c.fillConflictCount}} 项与你填的不同，需你确认后才覆盖）</text>
+        。摘要来自来源真实返回；原文节选不会被自动生成，只能你粘贴。
+        <view class="btn btn-small" id="v-fill-{{c.index}}" style="margin-top:8rpx;" data-index="{{c.index}}" bindtap="openIdentityDetail">
+          去补全题录与材料
+        </view>
+      </view>
+
+
+      <!-- 来源日志 / 原始返回入口：收起时同样可见，便于不展开也能取证 -->
+      <block wx:if="{{c.idn}}">
+        <view class="btn-row" style="margin-top:12rpx;">
+          <view id="v-iddetail-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="openIdentityDetail">查看核验详情 / 补证</view>
+          <view id="v-log-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="toggleLog">{{c.showLog ? '收起来源日志' : '查看来源日志'}}</view>
+          <view id="v-raw-{{c.index}}" class="btn btn-small btn-ghost" wx:if="{{c.idn.hasRaw}}" data-index="{{c.index}}" bindtap="copyRaw">复制来源原始返回</view>
+        </view>
+        <view class="panel" wx:if="{{c.showLog}}">
+          <view class="h3">数据访问日志（逐源记录）</view>
+          <view class="logrow" wx:for="{{c.idn.tried}}" wx:key="apiUrl">
+            · {{item.providerName}}｜{{item.method}}｜HTTP {{item.httpStatus}}｜{{item.requestedAt}}
+            <block wx:if="{{item.failureText}}">｜{{item.failureText}}</block>
+          </view>
+          <view class="hr"></view>
+          <view class="tiny">接口地址：{{c.idn.apiUrl || '（本次未请求外部接口）'}}</view>
+        </view>
+      </block>
+
+      <!-- ===== 详细核验内容：默认收起，按需展开 ===== -->
+      <block wx:if="{{c.expanded}}">
+        <block wx:if="{{c.hasEval}}">
+          <view class="h2" style="margin-top:18rpx;">核验结果</view>
+
+          <!-- 1. 文献身份和题录 -->
+          <view class="block">
+            <view class="status-line">
+              <text class="status-title">1. 文献身份和题录</text>
+              <text class="chip {{'chip-' + (c.idn ? c.idn.tone : 'gray')}}">
+                {{c.idn ? (c.idn.icon + ' ' + c.idn.statusText) : '· 尚未自动核验（待核验）'}}
+              </text>
+            </view>
+            <view class="muted" style="margin-top:8rpx;">{{c.ev.identity.reason}}</view>
+
+            <block wx:if="{{c.ev.identity.fields.length}}">
+              <view class="muted" style="margin-top:8rpx;">核对字段：</view>
+              <view class="tiny" wx:for="{{c.ev.identity.fields}}" wx:key="name">· {{item.name}}：{{item.value}}（{{item.source}}）</view>
+            </block>
+            <block wx:if="{{c.ev.identity.conflicts.length}}">
+              <view class="muted" style="margin-top:8rpx;color:#a8201f;">冲突字段：</view>
+              <view class="tiny" style="color:#a8201f;" wx:for="{{c.ev.identity.conflicts}}" wx:key="name">· {{item.name}}：粘贴解析=“{{item.parsed}}”，当前=“{{item.current}}”</view>
+            </block>
+            <view class="tiny" style="margin-top:8rpx;">{{c.ev.identity.sourceMark}}</view>
+
+            <!-- 自动核验（云函数）结果 -->
+            <block wx:if="{{c.idn}}">
+              <view class="divider"></view>
+
+              <view class="warnbox" style="margin-top:10rpx;" wx:if="{{c.idn.retracted}}">
+                ［重要］来源标记该文献【已被撤稿】，请务必先核实撤稿原因再决定是否引用。
+              </view>
+
+              <view wx:if="{{c.idn.hasRaw}}" class="tiny" style="margin-top:6rpx;">
+                来源原始返回已留存（{{c.idn.rawNote}}），可在详情页复制留档。
+              </view>
+
+              <!-- 千问兜底：题录 / 链接已拆开，缺链接不代表没检索到 -->
+              <view wx:if="{{c.idn.hasAiSearch && c.idn.aiSearch.recordOnly}}" class="warnbox" style="margin-top:10rpx;">
+                本次联网检索【查到了题录】，但没有留下可稳定访问的原文链接。
+                题录内容照常展示在核验卡里，这不是「未检索到该文献」——逐条链接的丢弃原因见详情页。
+              </view>
+
+              <!-- 逐字段比对 -->
+              <view wx:if="{{c.idn.hasChecks}}" style="margin-top:12rpx;">
+                <view class="h3">逐字段比对（文字 + 颜色双标识）</view>
+                <view wx:for="{{c.idn.checks}}" wx:key="name" class="check-detail">
+                  <view class="status-line">
+                    <text class="check-name">{{item.name}}</text>
+                    <text class="chip {{'chip-' + item.tone}}">{{item.mark}}</text>
+                  </view>
+                  <view class="cmp-line" wx:if="{{item.hasInput}}">你填写：{{item.input}}</view>
+                  <view class="cmp-line" wx:if="{{item.hasRecord}}">来源记录：{{item.record}}</view>
+                  <view class="cmp-line" wx:for="{{item.yearDetail}}" wx:for-item="yd" wx:key="kind">
+                    · {{yd.kind}}：{{yd.value}}（完整日期 {{yd.full}}）
+                  </view>
+                  <view class="cmp-line">{{item.note}}</view>
+                </view>
+              </view>
+
+              <!-- 候选记录 -->
+              <view wx:if="{{c.idn.hasCandidates}}" style="margin-top:12rpx;">
+                <view class="h3">候选记录 {{c.idn.candidates.length}} 条（需你确认，未自动采信）</view>
+                <view class="tiny">第 1 名仅为排序结果，不代表正确。请点「查看核验详情 / 补证」比对手稿后选择。</view>
+              </view>
+
+              <view wx:if="{{c.idnStale}}" class="warnbox" style="margin-top:12rpx;">
+                课题已更新，这条自动核验结果基于旧版课题，已标记「需重新评估」，请点「重新核验」后再使用。
+              </view>
+
+              <!-- 人工备注（只追加，不覆盖自动结论） -->
+              <view wx:if="{{c.manualCount}}" style="margin-top:12rpx;">
+                <view class="h3">人工备注（{{c.manualCount}} 条，与自动结论并列保存）</view>
+                <view wx:for="{{c.manualList}}" wx:key="id" class="check-detail">
+                  <view class="cmp-line">时间：{{item.at}}</view>
+                  <view class="cmp-line" wx:if="{{item.sourceName}}">证据来源：{{item.sourceName}}</view>
+                  <view class="cmp-line" wx:if="{{item.url}}">链接：{{item.url}}</view>
+                  <view class="cmp-line" wx:if="{{item.note}}">备注：{{item.note}}</view>
+                  <view class="cmp-line">说明：本条为人工填写，【未修改】系统自动核验结论。</view>
+                </view>
+              </view>
+            </block>
+          </view>
+
+          <!-- 2. 对本课题的用途 -->
+          <view class="block">
+            <view class="status-line">
+              <text class="status-title">2. 对本课题的用途</text>
+              <text wx:if="{{c.stale}}" class="chip chip-warn">需重新评估（第 {{c.evalRevision}} 版旧值：{{c.ev.usage.status}}）</text>
+              <text wx:else class="chip {{'chip-' + c.ev.usage.tone}}">{{c.ev.usage.label}}</text>
+            </view>
+            <view class="muted" style="margin-top:8rpx;">{{c.ev.usage.reason}}</view>
+            <block wx:if="{{c.ev.usage.detail.length}}">
+              <view class="muted" style="margin-top:8rpx;">判断依据：</view>
+              <view class="tiny" wx:for="{{c.ev.usage.detail}}" wx:key="*this">· {{item}}</view>
+            </block>
+            <view class="tiny" style="margin-top:8rpx;">{{c.ev.usage.sourceMark}}</view>
+          </view>
+
+          <!-- 3. 对拟引用主张的支持 -->
+          <view class="block">
+            <view class="status-line">
+              <text class="status-title">3. 对拟引用主张的支持</text>
+              <text wx:if="{{c.stale}}" class="chip chip-warn">需重新评估（第 {{c.evalRevision}} 版旧值：{{c.ev.claim.status}}）</text>
+              <text wx:else class="chip {{'chip-' + c.ev.claim.tone}}">{{c.ev.claim.label}}</text>
+            </view>
+            <view class="muted" style="margin-top:8rpx;">{{c.ev.claim.reason}}</view>
+            <block wx:if="{{c.ev.claim.detail.length}}">
+              <view class="muted" style="margin-top:8rpx;">你指出的事实：</view>
+              <view class="tiny" wx:for="{{c.ev.claim.detail}}" wx:key="*this">· {{item}}</view>
+            </block>
+            <view class="tiny" style="margin-top:8rpx;">{{c.ev.claim.sourceMark}}｜「原文支持 / 与原文不符」只能由你在人工确认中给出。</view>
+          </view>
+        </block>
+
+        <!-- 4. 课题适配与主张核验（第四阶段：基于证据）
+             放在 hasEval 之外——有没有本地初判都能做适配分析，
+             这一项只取决于你有没有提供摘要或原文节选。 -->
+        <view class="block">
+          <view class="status-line">
+            <text class="status-title">4. 课题适配与主张核验（基于证据）</text>
+            <text class="chip {{'chip-' + c.adaptTone}}">{{c.adaptText}}</text>
+          </view>
+          <view wx:if="{{c.adaptUsage}}" class="muted" style="margin-top:8rpx;">
+            当前用途：{{c.adaptUsage}}（{{c.adaptUsageSource}}）
+          </view>
+          <view wx:else class="muted" style="margin-top:8rpx;">
+            还没有做逐项对照。这一项需要你先提供摘要或原文节选，只基于你提供的材料判断。
+          </view>
+          <view class="tiny" style="margin-top:8rpx;">
+            {{c.adaptConfirmed ? '你已经确认过这一条的适配结论。' : '自动结论默认「未确认」，只有你在适配页点过确认才会标记为已确认。'}}
+          </view>
+          <view id="v-adapt2-{{c.index}}" class="btn btn-small" style="margin-top:10rpx;" data-index="{{c.index}}" bindtap="openAdapt">
+            查看逐项对照 / 修订用途
+          </view>
+        </view>
+
+        <!-- 人工结论展示（不覆盖自动结果） -->
+        <view class="block" wx:if="{{c.confirm}}">
+          <view class="status-line">
+            <text class="status-title">你的确认（{{c.confirm.at}}）</text>
+            <text class="chip chip-purple">{{c.confirm.decisionLabel}}</text>
+          </view>
+          <view class="muted" style="margin-top:8rpx;">对拟引用主张的人工判断：{{c.confirm.claimVerdict}}</view>
+          <view class="muted">理由：{{c.confirm.reason || '（未填写）'}}</view>
+          <view class="tiny">该确认基于课题第 {{c.confirm.basedOnRevision}} 版，与上面自动初判并列保存，二者不被互相覆盖。</view>
+        </view>
+
+      </block>
+
+      <!-- 入口 -->
+      <view class="btn-row">
+        <view id="v-source-{{c.index}}" class="btn btn-small" data-index="{{c.index}}" bindtap="toggleSource">{{c.showSource ? '收起来源' : '查看来源'}}</view>
+        <view id="v-edit-{{c.index}}" class="btn btn-small" data-index="{{c.index}}" bindtap="goEdit">补充证据 / 修正字段</view>
+        <view id="v-confirm-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="toggleConfirm">{{c.showConfirm ? '收起确认' : '人工确认'}}</view>
+        <view id="v-copy-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="copyEval">复制判断</view>
+        <view id="v-adapt-{{c.index}}" class="btn btn-small btn-ghost" data-index="{{c.index}}" bindtap="openAdapt">课题适配 / 主张核验</view>
+      </view>
+      <view class="tiny">
+        自动初判 {{c.evalHistoryCount}} 次 · 自动核验历史 {{c.idnHistoryCount}} 条 · 人工确认 {{c.confirmHistoryCount}} 次 · 最近初判 {{c.evalAt || '—'}}
+      </view>
+
+      <!-- 来源面板 -->
+      <view class="panel" wx:if="{{c.showSource}}">
+        <view class="h3">来源材料</view>
+        <view class="tiny">粘贴原文（原始输入，未改动）：</view>
+        <view class="text" style="font-size:24rpx;">{{c.raw}}</view>
+        <view class="hr"></view>
+        <view class="tiny">题名：{{c.title}}</view>
+        <view class="tiny" wx:if="{{c.fieldsEdited}}">注：存在人工修正的字段，修正后未与外部来源核对。</view>
+        <view class="tiny">原始链接：{{c.evidence.link || '未提供'}}</view>
+        <view wx:if="{{c.evidence.link}}" class="btn btn-small btn-ghost" style="margin-top:8rpx;" data-url="{{c.evidence.link}}" bindtap="openLink">复制链接去浏览器核对</view>
+        <view class="tiny" style="margin-top:8rpx;">摘要：{{c.evidence.abstract || '未提供'}}</view>
+        <view class="tiny" style="margin-top:8rpx;">原文节选：{{c.evidence.excerpt || '未提供'}}</view>
+        <view wx:if="{{c.note}}" class="tiny" style="margin-top:8rpx;">备注：{{c.note}}</view>
+        <view class="hr"></view>
+        <view class="tiny">判定方式：第 1 项为云函数自动核验（OpenAlex / Crossref），第 2、3 项为由你粘贴材料得出的本地初判。</view>
+        <view class="tiny">规则版本：{{c.ev.ruleVersion}}｜基于课题第 {{c.evalRevision}} 版</view>
+      </view>
+
+      <!-- 人工确认面板 -->
+      <view class="panel" wx:if="{{c.showConfirm}}">
+        <view class="h3">人工确认：这条我怎么用</view>
+        <view
+          wx:for="{{decisions}}"
+          wx:key="key"
+          id="v-dec-{{c.index}}-{{item.key}}"
+          class="entry"
+          style="padding:16rpx;margin-bottom:10rpx;{{draft[c.index].decision === item.key ? 'border-color:#1f6feb;background:#f5f9ff;' : ''}}"
+          data-index="{{c.index}}"
+          data-key="{{item.key}}"
+          bindtap="pickDecision"
+        >
+          <view class="row">
+            <text class="text" style="font-weight:600;">{{item.label}}</text>
+            <text wx:if="{{draft[c.index].decision === item.key}}" class="chip chip-ok">已选</text>
+          </view>
+          <view class="tiny">{{item.desc}}</view>
+        </view>
+
+        <view class="h3" style="margin-top:14rpx;">对「拟引用主张」的判断（回原文核对后选）</view>
+        <view class="tiny" wx:if="{{topic.claim}}">要说的话：{{topic.claim}}</view>
+        <view class="tiny" wx:else>课题页没有填写「希望某篇论文支持的说法」，这项可留空。</view>
+        <view class="tag-list">
+          <text
+            wx:for="{{claimVerdicts}}"
+            wx:key="*this"
+            id="v-verdict-{{c.index}}-{{item}}"
+            class="chip {{draft[c.index].claimVerdict === item ? 'chip-info' : 'chip-gray'}}"
+            data-index="{{c.index}}"
+            data-val="{{item}}"
+            bindtap="pickVerdict"
+          >{{item}}</text>
+        </view>
+
+        <view class="field" style="margin-top:16rpx;">
+          <text class="field-label">理由（建议写清适用条件与范围）</text>
+          <textarea
+            id="v-reason-{{c.index}}"
+            class="textarea"
+            data-index="{{c.index}}"
+            bindinput="onReason"
+            value="{{draft[c.index].reason}}"
+            placeholder="例如：研究对象同为老旧小区，但该研究样本在南方，冬季工况不同，结论只能作方法借鉴。"
+            maxlength="500"
+            auto-height
+          />
+        </view>
+        <view id="v-submit-{{c.index}}" class="btn btn-primary btn-block" data-index="{{c.index}}" bindtap="submitConfirm">保存人工确认</view>
+        <view class="tiny" style="margin-top:8rpx;">保存后原始自动初判仍然完整保留，人工结论作为独立一层记录。</view>
+      </view>
+    </view>
+  </block>
+
+  <view class="tabbar-holder"></view>
+</view>

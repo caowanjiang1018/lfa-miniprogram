@@ -1,0 +1,395 @@
+<view class="page">
+
+  <!-- 没有课题 -->
+  <view class="card" wx:if="{{!hasTopic}}">
+    <view class="h1">先填写课题</view>
+    <view class="muted" style="margin-top:12rpx;">
+      检索推荐必须以课题要求为依据。请先到「我的课题」填写研究问题、对象与任务，再回来检索。
+    </view>
+    <view class="btn-row">
+      <view class="btn btn-primary btn-small" bindtap="goTopic">填写我的课题</view>
+    </view>
+  </view>
+
+  <block wx:if="{{hasTopic}}">
+
+    <!-- ① 课题确认 -->
+    <view class="card">
+      <view class="row">
+        <text class="h1">① 确认课题要求</text>
+        <text class="chip chip-info">第 {{topic.revision}} 版</text>
+      </view>
+      <view class="text" style="margin-top:12rpx;">{{topic.name}}</view>
+      <view class="muted" wx:if="{{topic.problem}}">研究问题：{{topic.problem}}</view>
+      <view class="muted" wx:if="{{topic.target}}">对象/场景：{{topic.target}}</view>
+      <view class="muted" wx:if="{{topic.task}}">期望完成的任务：{{topic.task}}</view>
+
+      <view class="field" style="margin-top:20rpx;">
+        <text class="field-label">这次具体想找什么（可选）</text>
+        <textarea class="textarea" placeholder="例如：想找「老旧小区冬季采暖改造效果」的实测研究，最好有能耗数据" value="{{hint}}" bindinput="onHint" maxlength="300" />
+        <text class="field-hint">填得越具体，生成的检索式越准；不填也可以。</text>
+      </view>
+
+      <view class="btn-row">
+        <view class="btn btn-small" bindtap="goTopic">查看 / 修改课题</view>
+        <view id="d-plan" class="btn btn-primary btn-small" bindtap="genPlan" wx:if="{{!planning}}">生成检索式</view>
+        <view class="btn btn-small" wx:else>生成中…</view>
+      </view>
+
+      <view wx:if="{{planError}}" class="warnbox" style="margin-top:16rpx;">
+        检索式生成失败：{{planError}}。这是「没生成成」，不是「没有相关文献」。你可以自己填写检索式后直接检索。
+      </view>
+    </view>
+
+    <!-- 历史检索清单（每次真实检索封存一份，可反复回看） -->
+    <view class="card" wx:if="{{history.length}}">
+      <view class="row">
+        <text class="h1">历史检索清单</text>
+        <text class="chip chip-info">已封存 {{history.length}} 次</text>
+      </view>
+      <view class="muted" style="margin-top:8rpx;">
+        每次真实检索都会封存一份当时的清单（检索式、候选集、覆盖说明、检索日志）。
+        重新检索、换课题都不会删掉它，随时可以点开回看或复制导出。
+      </view>
+      <view class="btn-row">
+        <view id="d-hist-toggle" class="btn btn-small" bindtap="toggleHistory">
+          {{showHistory ? '收起历史' : '展开历史（' + history.length + '）'}}
+        </view>
+      </view>
+
+      <block wx:if="{{showHistory}}">
+        <view wx:for="{{history}}" wx:key="id" class="block" style="margin-top:14rpx;padding:16rpx;">
+          <view class="row">
+            <text class="h3" style="flex:1;">{{item.createdAt}}</text>
+            <text wx:if="{{item.status === 'ok'}}" class="chip chip-ok">{{item.total}} 条候选</text>
+            <text wx:elif="{{item.status === 'empty'}}" class="chip chip-warn">那次没找到</text>
+            <text wx:else class="chip chip-danger">那次检索失败</text>
+          </view>
+          <view class="tiny" style="margin-top:8rpx;" wx:if="{{item.queries.length}}">
+            检索式：<text wx:for="{{item.queries}}" wx:key="*this">「{{item}}」</text>
+          </view>
+          <view class="tiny" wx:if="{{item.hint}}">当时想找：{{item.hint}}</view>
+          <view class="tiny" wx:if="{{item.recommended}}">推荐 {{item.recommended}} 条<text wx:if="{{item.addedRefIds.length}}">，已加入文献库 {{item.addedRefIds.length}} 条</text></view>
+          <view class="tiny" wx:else>那次还没有做关系分析</view>
+          <view class="btn-row">
+            <view class="btn btn-small btn-primary" data-id="{{item.id}}" bindtap="openHistoryItem">查看这份清单</view>
+            <view class="btn btn-small" data-id="{{item.id}}" bindtap="copyHistoryItem">复制</view>
+            <view class="btn btn-small btn-ghost" data-id="{{item.id}}" bindtap="removeHistoryItem">删除</view>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 正在查看历史清单时的提示条 -->
+    <view class="card" wx:if="{{viewingHistoryId}}" style="border-left:8rpx solid #7c9cff;">
+      <view class="row">
+        <text class="h1">正在回看历史清单</text>
+        <text class="chip chip-info">{{viewingHistoryAt}}</text>
+      </view>
+      <view class="muted" style="margin-top:8rpx;">
+        下面显示的是那次检索【当时】的候选与分析，不是现在重新查的结果。
+        在这里加入文献库同样按真实记录入库；要重新检索，请先退出回看。
+      </view>
+      <view class="btn-row">
+        <view id="d-hist-exit" class="btn btn-small btn-primary" bindtap="exitHistory">退出回看，回到当前检索</view>
+      </view>
+    </view>
+
+    <!-- ② 检索式 -->
+    <view class="card" wx:if="{{plan}}">
+      <view class="row">
+        <text class="h1">② 检索式（可改）</text>
+        <text wx:if="{{plan.fallback}}" class="chip chip-warn">未按模型生成，已用课题原文拼接</text>
+        <text wx:else class="chip chip-info">模型 {{planModel}}</text>
+      </view>
+      <view class="muted" style="margin-top:8rpx;">
+        这些检索式会原样发给公开学术数据库做真实检索。模型在这一步【不开联网检索】，也不会给出任何文献条目。
+      </view>
+
+      <view wx:if="{{plan.keywords.length}}" style="margin-top:14rpx;">
+        <text class="h3">核心概念</text>
+        <view class="tag-list">
+          <text class="chip chip-gray" wx:for="{{plan.keywords}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{plan.synonyms.length}}" style="margin-top:14rpx;">
+        <text class="h3">同义词 / 近义词</text>
+        <view class="tag-list">
+          <text class="chip chip-gray" wx:for="{{plan.synonyms}}" wx:key="*this">{{item}}</text>
+        </view>
+      </view>
+
+      <view style="margin-top:18rpx;">
+        <text class="h3">检索式（勾选才会发出去）</text>
+        <view class="block" wx:for="{{plan.queries}}" wx:for-index="qi" wx:key="text" style="padding:16rpx;">
+          <view class="row">
+            <view style="flex:1;">
+              <input class="input" style="min-height:72rpx;font-size:26rpx;" value="{{item.text}}"
+                data-index="{{qi}}" bindblur="onEditQuery" maxlength="120" />
+            </view>
+            <view class="btn btn-small {{item.enabled ? 'entry-active' : ''}}" style="margin-left:12rpx;"
+              data-index="{{qi}}" bindtap="toggleQuery">{{item.enabled ? '已选' : '未选'}}</view>
+          </view>
+          <view class="tiny" style="margin-top:6rpx;">[{{item.lang}}] {{item.why}}</view>
+        </view>
+      </view>
+
+      <view class="field" style="margin-top:18rpx;">
+        <text class="field-label">补充同义词 / 换个说法</text>
+        <input id="d-syn" class="input" placeholder="例如：residential building retrofit energy" value="{{extraSyn}}" bindinput="onExtraSyn" maxlength="120" />
+        <view class="btn-row">
+          <view id="d-syn-add" class="btn btn-small" bindtap="addSynonymQuery">加为一条检索式</view>
+        </view>
+      </view>
+
+      <view class="row" style="margin-top:14rpx;">
+        <view style="flex:1;margin-right:12rpx;">
+          <text class="field-label">年份起（可空）</text>
+          <input class="input" style="min-height:72rpx;" type="number" placeholder="2015" value="{{yearFrom}}" bindinput="onYearFrom" maxlength="4" />
+        </view>
+        <view style="flex:1;">
+          <text class="field-label">年份止（可空）</text>
+          <input class="input" style="min-height:72rpx;" type="number" placeholder="2026" value="{{yearTo}}" bindinput="onYearTo" maxlength="4" />
+        </view>
+      </view>
+
+      <view class="btn-row">
+        <view id="d-search" class="btn btn-primary btn-small" bindtap="doSearch" wx:if="{{!searching}}">开始真实检索</view>
+        <view class="btn btn-small" wx:else>检索中…</view>
+        <view class="btn btn-small" bindtap="showCoverage">覆盖范围说明</view>
+      </view>
+    </view>
+
+    <!-- ③ 检索结果 -->
+    <view class="card" wx:if="{{search}}">
+      <view class="row">
+        <text class="h1">③ 真实检索结果</text>
+        <text wx:if="{{search.status === 'ok'}}" class="chip chip-ok">检索到 {{search.candidates.length}} 条</text>
+        <text wx:elif="{{search.status === 'empty'}}" class="chip chip-warn">没找到结果</text>
+        <text wx:else class="chip chip-danger">检索失败</text>
+      </view>
+
+      <view class="infobox" style="margin-top:14rpx;">
+        检索服务：<text wx:for="{{search.services}}" wx:key="id">{{item.name}}<text wx:if="{{item.used}}">（已用）</text><text wx:elif="{{item.configured === false}}">（未配置 Token）</text><text wx:elif="{{item.unavailableReason === 'auth_failed'}}">（Token 鉴权失败）</text><text wx:if="{{index < search.services.length-1}}">、</text></text>
+        <view>检索时间：{{search.at}}</view>
+        <view>实际发出的检索式：<text wx:for="{{search.executedQueries}}" wx:key="*this">「{{item}}」</text></view>
+        <view wx:if="{{search.removedDuplicates.length}}">去重合并 {{search.removedDuplicates.length}} 条</view>
+        <view wx:if="{{search.removedIrrelevant.length}}">剔除了 {{search.removedIrrelevant.length}} 条与检索式毫无词面重合的记录</view>
+      </view>
+
+      <view wx:if="{{search.status === 'failed'}}" class="warnbox">
+        检索失败：{{searchError}}。这是「这次没查成」，与有没有相关文献无关，请稍后重试或调整检索式。
+      </view>
+      <!-- AMiner Token 鉴权失败：这是配置问题，必须让用户知道该去换 Token，
+           而不是误以为「课题没有相关文献」。 -->
+      <view wx:if="{{search.authNotice}}" class="warnbox">
+        {{search.authNotice}}
+      </view>
+      <view wx:elif="{{search.status === 'empty'}}" class="warnbox">
+        <block wx:if="{{search.emptyKind === 'no_relevant'}}">
+          检索成功，但返回记录里没有一条与检索式有词面重合（已剔除 {{search.removedIrrelevant.length}} 条）。可以：换个说法 / 去掉年份限制 / 补充同义词，或改用中文库与学校图书馆检索。
+        </block>
+        <block wx:else>
+          检索成功但公开元数据库都没有返回记录。可以：换个说法 / 去掉年份限制 / 补充同义词，或改用中文库与学校图书馆检索。
+        </block>
+      </view>
+
+      <view wx:if="{{search.candidates.length}}">
+        <view class="row" style="margin-top:8rpx;">
+          <text class="h3">候选记录（{{search.candidates.length}} 条，筛选后 {{filteredCount}} 条）</text>
+          <text class="tiny" bindtap="toggleFacets">筛选</text>
+        </view>
+
+        <view class="panel" wx:if="{{showFacets}}">
+          <view wx:if="{{facets.langs.length}}">
+            <text class="tiny">语言（只列出真实返回里出现的）：</text>
+            <view class="tag-list">
+              <text class="chip {{filterLang === item.value ? 'chip-info' : 'chip-gray'}}" wx:for="{{facets.langs}}" wx:key="value"
+                data-value="{{item.value}}" bindtap="pickLang">{{item.value}} · {{item.count}}</text>
+            </view>
+          </view>
+          <view wx:if="{{facets.types.length}}" style="margin-top:12rpx;">
+            <text class="tiny">类型（只列出真实返回里出现的）：</text>
+            <view class="tag-list">
+              <text class="chip {{filterType === item.value ? 'chip-info' : 'chip-gray'}}" wx:for="{{facets.types}}" wx:key="value"
+                data-value="{{item.value}}" bindtap="pickType">{{item.value}} · {{item.count}}</text>
+            </view>
+          </view>
+          <view class="tiny" style="margin-top:10rpx;">
+            年份分布：{{facets.years.length ? '' : '（无年份数据）'}}<text wx:for="{{facets.years}}" wx:key="value">{{item.value}}<text wx:if="{{index < facets.years.length-1}}">、</text></text>
+          </view>
+        </view>
+
+        <view class="block" wx:for="{{search.candidates}}" wx:key="id" style="margin-top:14rpx;">
+          <view class="row">
+            <text class="tiny">#{{item.id}} · {{item.source}}</text>
+            <text class="chip {{item.hasAbstract ? 'chip-ok' : 'chip-gray'}}">{{item.hasAbstract ? '有摘要' : '仅题录'}}</text>
+          </view>
+          <view class="text" style="margin-top:8rpx;font-weight:600;">{{item.title}}</view>
+          <view class="muted">{{item.authors}}</view>
+          <view class="muted">{{item.venue}}　{{item.year}}　<text wx:if="{{item.doi}}">DOI: {{item.doi}}</text></view>
+          <view class="tiny">检索式：{{item.query}}｜取得时间 {{item.retrievedAt}}</view>
+          <view class="btn-row">
+            <view class="btn btn-small" data-url="{{item.url}}" bindtap="copyLink">复制原始链接</view>
+          </view>
+        </view>
+
+        <view class="btn-row">
+          <view id="d-analyze" class="btn btn-primary btn-small" bindtap="doAnalyze" wx:if="{{!analyzing}}">分析这些候选与课题的关系</view>
+          <view class="btn btn-small" wx:else>分析中…</view>
+          <view class="btn btn-small" bindtap="toggleLog">查看检索日志</view>
+        </view>
+
+        <view class="panel" wx:if="{{showLog}}">
+          <view class="logrow" wx:for="{{search.log}}" wx:key="apiUrl">
+            · {{item.providerName}}｜HTTP {{item.httpStatus}}｜返回 {{item.returned}} 条｜{{item.requestedAt}}
+            <text wx:if="{{item.failureKind}}">｜失败：{{item.failureDetail}}</text>
+            <view class="logrow">　检索式：{{item.query}}</view>
+            <view class="logrow">　{{item.apiUrl}}</view>
+          </view>
+        </view>
+
+        <view class="panel" wx:if="{{showLog && search.removedIrrelevant.length}}">
+          <text class="h3">被剔除的无关记录（{{search.removedIrrelevant.length}} 条）</text>
+          <view class="logrow" wx:for="{{search.removedIrrelevant}}" wx:key="title">· {{item.title}}（{{item.source}}）：{{item.reason}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ④ 推荐清单 -->
+    <view class="card" wx:if="{{analysis}}">
+      <view class="row">
+        <text class="h1">④ 推荐清单</text>
+        <text class="chip chip-info">分析模型 {{analysis.model}}</text>
+      </view>
+      <view class="muted" style="margin-top:8rpx;">
+        以下条目的题名、作者、年份、DOI、链接【全部来自上一步的真实检索记录】；
+        模型只负责解释它们与课题的关系。检索到记录 ≠ 已核实论文质量，原文仍需你自己打开确认。
+      </view>
+      <view wx:if="{{analysisError}}" class="warnbox" style="margin-top:14rpx;">
+        关系分析未完成：{{analysisError}}。候选记录已经真实检索到了，你可以按题录自行判断；本系统不编造推荐理由。
+      </view>
+      <view wx:if="{{analysis.note}}" class="infobox" style="margin-top:14rpx;">模型对这批候选的整体说明：{{analysis.note}}</view>
+      <view class="tiny" style="margin-top:10rpx;">
+        本次交给模型分析 {{analysis.analyzedCount}} 条（上限 6 条），未分析 {{analysis.unanalyzedCount}} 条——未分析的条目不给出任何推荐结论。
+        <text wx:if="{{analysis.percentRemoved}}">已删除 {{analysis.percentRemoved}} 处模型给出的百分数评分（无法验证）。</text>
+        <text wx:if="{{analysis.recencyRemoved}}">已删除 {{analysis.recencyRemoved}} 处「年份新 = 更可信」的表述（发表年份不作为优势）。</text>
+      </view>
+
+      <!-- 推荐清单（最多 5 篇） -->
+      <view class="h2">推荐清单（最多 5 篇，实际 {{recItems.length}} 篇）</view>
+      <view wx:if="{{!recItems.length}}" class="empty">
+        没有可进入推荐清单的条目：要么本次没检索到候选，要么拿到的记录都只有题录、材料不足以判断。
+        下面「待阅读线索」里的条目可以自行打开原文确认。
+      </view>
+
+      <view class="block" wx:for="{{recItems}}" wx:key="id" wx:for-index="ri" style="margin-bottom:20rpx;">
+        <view class="row">
+          <text class="cand-rank">推荐 {{ri + 1}}</text>
+          <text class="chip chip-gray">{{item.source}}</text>
+        </view>
+        <view class="text" style="margin-top:8rpx;font-weight:600;">{{item.title}}</view>
+        <view class="muted">{{item.authors}}</view>
+        <view class="muted">{{item.venue}}　{{item.year}}　<text wx:if="{{item.doi}}">DOI: {{item.doi}}</text></view>
+
+        <view style="margin-top:12rpx;">
+          <text class="tiny">阅读依据：</text><text class="text">{{item.evidenceText}}</text>
+        </view>
+        <view wx:if="{{item.oaText}}" class="tiny">{{item.oaText}}</view>
+
+        <view wx:if="{{item.match.length}}" style="margin-top:10rpx;">
+          <text class="h3">匹配点</text>
+          <view class="lst-item" wx:for="{{item.match}}" wx:for-item="m" wx:key="text">· {{m.text}}</view>
+        </view>
+        <view wx:if="{{item.gap.length}}" style="margin-top:10rpx;">
+          <text class="h3">差异 / 局限</text>
+          <view class="lst-item" wx:for="{{item.gap}}" wx:for-item="g" wx:key="text">· {{g.text}}</view>
+        </view>
+        <view wx:if="{{item.todo.length}}" style="margin-top:10rpx;">
+          <text class="h3">仍需验证的条件</text>
+          <view class="lst-item" wx:for="{{item.todo}}" wx:for-item="t" wx:key="text">· {{t.text}}</view>
+        </view>
+        <view wx:if="{{item.why}}" class="muted" style="margin-top:10rpx;">推荐理由：{{item.why}}</view>
+
+        <view class="h3" style="margin-top:14rpx;">选择用途（可多选）</view>
+        <view class="tag-list">
+          <text id="d-use-rec-{{ri}}-{{ui}}" class="chip {{u.picked ? 'chip-ok' : (u.suggested ? 'chip-info' : 'chip-gray')}}"
+            wx:for="{{item.uses}}" wx:for-item="u" wx:for-index="ui" wx:key="key"
+            data-kind="rec" data-index="{{ri}}" data-key="{{u.key}}" bindtap="toggleUse">
+            {{u.key}}<text wx:if="{{u.suggested}}">（系统建议）</text>
+          </text>
+        </view>
+
+        <view class="btn-row">
+          <view class="btn btn-small" data-url="{{item.url}}" bindtap="copyLink">复制原始链接</view>
+          <view id="d-add-rec-{{ri}}" class="btn btn-primary btn-small" wx:if="{{!item.exists}}"
+            data-kind="rec" data-index="{{ri}}" bindtap="addOne">加入项目文献库</view>
+          <view class="btn btn-small" wx:if="{{item.exists}}">已在文献库中</view>
+        </view>
+      </view>
+
+      <!-- 待阅读线索 -->
+      <view class="h2">待阅读线索（{{leadItems.length}} 条）</view>
+      <view class="muted">
+        这些条目【已取得题录】，但公开库没有提供摘要、本系统也没读过原文，因此【匹配程度尚未确认】。
+        它们不是已完成内容核验的推荐，仅供你打开原文后自行判断。
+      </view>
+      <view class="block" wx:for="{{leadItems}}" wx:key="id" wx:for-index="li" style="margin-top:14rpx;">
+        <view class="row">
+          <text class="tiny">{{item.source}}</text>
+          <text class="chip chip-warn">匹配程度尚未确认</text>
+        </view>
+        <view class="text" style="margin-top:8rpx;font-weight:600;">{{item.title}}</view>
+        <view class="muted">{{item.authors}}</view>
+        <view class="muted">{{item.venue}}　{{item.year}}　<text wx:if="{{item.doi}}">DOI: {{item.doi}}</text></view>
+        <view class="tiny">阅读依据：{{item.evidenceText}}</view>
+        <view wx:if="{{item.why}}" class="muted" style="margin-top:8rpx;">题录层面的说明：{{item.why}}</view>
+        <view class="h3" style="margin-top:12rpx;">选择用途（可多选）</view>
+        <view class="tag-list">
+          <text id="d-use-lead-{{li}}-{{ui}}" class="chip {{u.picked ? 'chip-ok' : (u.suggested ? 'chip-info' : 'chip-gray')}}"
+            wx:for="{{item.uses}}" wx:for-item="u" wx:for-index="ui" wx:key="key"
+            data-kind="lead" data-index="{{li}}" data-key="{{u.key}}" bindtap="toggleUse">
+            {{u.key}}<text wx:if="{{u.suggested}}">（系统建议）</text>
+          </text>
+        </view>
+        <view class="btn-row">
+          <view class="btn btn-small" data-url="{{item.url}}" bindtap="copyLink">复制原始链接</view>
+          <view id="d-add-lead-{{li}}" class="btn btn-small" wx:if="{{!item.exists}}" data-kind="lead" data-index="{{li}}" bindtap="addOne">加入项目文献库</view>
+          <view class="btn btn-small" wx:if="{{item.exists}}">已在文献库中</view>
+        </view>
+      </view>
+
+      <!-- 其余已分析条目 -->
+      <block wx:if="{{otherItems.length}}">
+        <view class="h2">其余已分析条目（{{otherItems.length}} 条）</view>
+        <view class="muted">已超出本次推荐上限（5 篇），同样来自真实检索记录，未做排序承诺。</view>
+        <view class="block" wx:for="{{otherItems}}" wx:key="id" wx:for-index="oi" style="margin-top:14rpx;">
+          <view class="text" style="font-weight:600;">{{item.title}}</view>
+          <view class="muted">{{item.authors}}　{{item.venue}}　{{item.year}}</view>
+          <view class="tiny">阅读依据：{{item.evidenceText}}</view>
+          <view class="btn-row">
+            <view class="btn btn-small" data-url="{{item.url}}" bindtap="copyLink">复制原始链接</view>
+            <view class="btn btn-small" wx:if="{{!item.exists}}" data-kind="other" data-index="{{oi}}" bindtap="addOne">加入项目文献库</view>
+            <view class="btn btn-small" wx:if="{{item.exists}}">已在文献库中</view>
+          </view>
+        </view>
+      </block>
+
+      <view wx:if="{{analysis.dropped.length}}" class="panel" style="margin-top:16rpx;">
+        <text class="h3">被丢弃的模型输出（{{analysis.dropped.length}} 条）</text>
+        <view class="logrow" wx:for="{{analysis.dropped}}" wx:key="id">· {{item.id}}：{{item.reason}}</view>
+      </view>
+
+      <view class="btn-row">
+        <view class="btn btn-small" bindtap="copyRun">复制本次检索留痕</view>
+        <view class="btn btn-small" bindtap="goVerify">去核验卡确认</view>
+        <view class="btn btn-small" bindtap="goImport">手工导入我找到的记录</view>
+        <view class="btn btn-small btn-ghost" bindtap="restart">重新检索</view>
+      </view>
+    </view>
+
+  </block>
+
+  <view class="tabbar-holder"></view>
+</view>

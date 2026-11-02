@@ -1,0 +1,169 @@
+/* 首页：学术高级感改版。
+ * - 整页浅蓝渐变底 + 抽象光斑背景图（base64 内嵌，无外链依赖）
+ * - 品牌区：大号横向渐变标题（深蓝→品牌蓝→紫），副标题加大加粗
+ * - 两大核心入口：并排高卡片，渐变图标块 + 白图标 + 渐变装饰线
+ * - 次级入口：扁平小卡片一行两个，弹性布局压向底部，减少底部留白
+ * 配色沿用全局体系：深蓝 #14468f、品牌蓝 #1f6feb。 */
+
+page {
+  background: linear-gradient(180deg, #e8f0fc 0%, #f2f6fb 42%, #f7f9fc 100%);
+}
+
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI3NTAiIGhlaWdodD0iMTIwMCIgdmlld0JveD0iMCAwIDc1MCAxMjAwIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9ImEiIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzFmNmZlYiIgc3RvcC1vcGFjaXR5PSIwLjE4Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMWY2ZmViIiBzdG9wLW9wYWNpdHk9IjAiLz48L3JhZGlhbEdyYWRpZW50PjxyYWRpYWxHcmFkaWVudCBpZD0iYiIgY3g9IjUwJSIgY3k9IjUwJSIgcj0iNTAlIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjN2I2Y2YwIiBzdG9wLW9wYWNpdHk9IjAuMTIiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3YjZjZjAiIHN0b3Atb3BhY2l0eT0iMCIvPjwvcmFkaWFsR3JhZGllbnQ+PHJhZGlhbEdyYWRpZW50IGlkPSJjIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI1MCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxNDQ2OGYiIHN0b3Atb3BhY2l0eT0iMC4xMCIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzE0NDY4ZiIgc3RvcC1vcGFjaXR5PSIwIi8+PC9yYWRpYWxHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iNjUwIiBjeT0iMTIwIiByPSIzODAiIGZpbGw9InVybCgjYSkiLz48Y2lyY2xlIGN4PSI0MCIgY3k9IjQzMCIgcj0iMzAwIiBmaWxsPSJ1cmwoI2IpIi8+PGNpcmNsZSBjeD0iNzEwIiBjeT0iNzgwIiByPSIyNjAiIGZpbGw9InVybCgjYykiLz48L3N2Zz4=");
+  background-repeat: no-repeat;
+  background-position: top center;
+  background-size: 750rpx auto;
+}
+
+/* ---------- 品牌区：大号渐变标题 ---------- */
+.brand {
+  padding: 108rpx 16rpx 0;
+  margin-bottom: 84rpx;
+}
+.brand-name {
+  font-size: 60rpx;
+  font-weight: 800;
+  letter-spacing: 6rpx;
+  line-height: 1.25;
+  background: linear-gradient(105deg, #0f2f66 0%, #14468f 30%, #1f6feb 62%, #6a5af0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand-slogan {
+  margin-top: 20rpx;
+  font-size: 31rpx;
+  font-weight: 600;
+  color: #33415e;
+  letter-spacing: 3rpx;
+}
+
+/* ---------- 两大核心入口：并排高卡片 ---------- */
+.entry-list {
+  display: flex;
+  gap: 24rpx;
+  align-items: stretch;
+}
+/* 每列：主卡在上，对应次级入口紧随其下 */
+.col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.entry {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1rpx solid rgba(20, 70, 143, 0.06);
+  border-radius: 32rpx;
+  padding: 104rpx 20rpx 84rpx;
+  box-shadow: 0 18rpx 44rpx rgba(20, 70, 143, 0.13);
+  transition: transform 0.15s ease;
+}
+.entry-hover {
+  transform: scale(0.965);
+  background: #f7faff;
+}
+
+/* 渐变图标块：白图标 + 内阴影，立体感 */
+.entry-icon {
+  width: 136rpx;
+  height: 136rpx;
+  border-radius: 34rpx;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 72rpx 72rpx;
+  box-shadow: 0 10rpx 24rpx rgba(31, 111, 235, 0.32),
+    inset 0 2rpx 6rpx rgba(255, 255, 255, 0.35);
+}
+.entry-icon-discover {
+  background-color: #1f6feb;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMi42IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yNyA2SDEzYTMgMyAwIDAgMC0zIDN2MzBhMyAzIDAgMCAwIDMgM2gxMyIvPjxwYXRoIGQ9Ik0yNyA2bDkgOXY3Ii8+PHBhdGggZD0iTTE1IDE3aDgiLz48cGF0aCBkPSJNMTUgMjNoNiIvPjxjaXJjbGUgY3g9IjI4IiBjeT0iMjkiIHI9IjcuNSIvPjxwYXRoIGQ9Ik0zMy41IDM0LjVMNDAgNDEiLz48L3N2Zz4="),
+    linear-gradient(135deg, #4a8cf5 0%, #1f6feb 60%, #14468f 100%);
+}
+.entry-icon-verify {
+  background-color: #14468f;
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMi42IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yNyA2SDEyYTMgMyAwIDAgMC0zIDN2MzBhMyAzIDAgMCAwIDMgM2gyNGEzIDMgMCAwIDAgMy0zVjE1Ii8+PHBhdGggZD0iTTI3IDZsMTIgMTJoLTEyVjZ6Ii8+PHBhdGggZD0iTTE3IDMxbDYgNiAxMi0xMyIvPjwvc3ZnPg=="),
+    linear-gradient(135deg, #2f6fe0 0%, #14468f 65%, #0f2f66 100%);
+}
+.entry-icon-discover,
+.entry-icon-verify {
+  background-repeat: no-repeat, no-repeat;
+  background-position: center, center;
+  background-size: 72rpx 72rpx, cover;
+}
+
+.entry-title {
+  margin-top: 36rpx;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #14468f;
+  letter-spacing: 1rpx;
+  line-height: 1.4;
+}
+
+/* 渐变装饰线：替代说明小字，保持卡片干净 */
+.entry-accent {
+  margin-top: 28rpx;
+  width: 56rpx;
+  height: 8rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #1f6feb, #7ba7f0);
+}
+.entry-accent-verify {
+  background: linear-gradient(90deg, #14468f, #5a7fc0);
+}
+
+/* ---------- 弹性空隙：次级入口压向底部 ---------- */
+.flex-space {
+  flex: 1;
+  min-height: 48rpx;
+}
+
+/* ---------- 次级入口：紧贴对应主卡下方，扁平小卡片 ---------- */
+.sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1rpx solid rgba(20, 70, 143, 0.05);
+  border-radius: 22rpx;
+  padding: 32rpx 24rpx;
+  box-shadow: 0 4rpx 14rpx rgba(20, 70, 143, 0.06);
+  transition: transform 0.15s ease;
+}
+.sub-hover {
+  transform: scale(0.965);
+  background: #f2f7ff;
+}
+.sub-icon {
+  flex-shrink: 0;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 16rpx;
+  background-color: #eef4fd;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 38rpx 38rpx;
+}
+.sub-icon-topic {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiMxNDQ2OGYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxjaXJjbGUgY3g9IjI0IiBjeT0iMjQiIHI9IjE3Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMTAiLz48Y2lyY2xlIGN4PSIyNCIgY3k9IjI0IiByPSIzLjIiIGZpbGw9IiMxNDQ2OGYiIHN0cm9rZT0ibm9uZSIvPjwvc3ZnPg==");
+}
+.sub-icon-record {
+  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0OCIgaGVpZ2h0PSI0OCIgdmlld0JveD0iMCAwIDQ4IDQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiMxNDQ2OGYiIHN0cm9rZS13aWR0aD0iMi40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yNyA2SDEyYTMgMyAwIDAgMC0zIDN2MzBhMyAzIDAgMCAwIDMgM2gyNGEzIDMgMCAwIDAgMy0zVjE1Ii8+PHBhdGggZD0iTTI3IDZsMTIgMTJoLTEyVjZ6Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIzMCIgcj0iNy41Ii8+PHBhdGggZD0iTTI0IDI1LjhWMzBsMy4yIDIuMiIvPjwvc3ZnPg==");
+}
+.sub-title {
+  margin-left: 18rpx;
+  font-size: 29rpx;
+  font-weight: 700;
+  color: #14468f;
+  letter-spacing: 1rpx;
+}

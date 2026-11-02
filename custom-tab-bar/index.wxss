@@ -1,0 +1,32 @@
+.ctab {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  display: flex;
+  background: #ffffff;
+  border-top: 1rpx solid #e6e9ee;
+  z-index: 100;
+}
+
+.ctab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 110rpx;
+}
+
+.ctab-text {
+  font-size: 25rpx;
+  line-height: 1.2;
+  text-align: center;
+  color: #8a8f99;
+}
+
+.ctab-on .ctab-text {
+  color: #1f6feb;
+  font-weight: 600;
+}

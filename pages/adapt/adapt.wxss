@@ -1,0 +1,3 @@
+/* 课题适配页：只补少量本页专用样式，其余沿用 app.wxss */
+.statusbar-text { font-weight: 600; }
+.check-detail { margin-top: 8rpx; }

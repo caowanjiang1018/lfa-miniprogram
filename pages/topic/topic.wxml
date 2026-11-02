@@ -1,0 +1,162 @@
+<view class="page">
+
+  <view class="infobox">
+    课题是后面所有核验判断的依据。修改其中任何一项保存后，相关初判会标记为「需重新评估」，不会悄悄沿用旧结论。
+  </view>
+
+  <!-- ===== 课题列表（卡片内自带 修改 / 删除） ===== -->
+  <view class="card">
+    <view class="row">
+      <text class="h1">我的课题</text>
+      <text class="chip chip-gray">共 {{topicCount}} 个</text>
+    </view>
+    <text class="field-hint">点卡片本体＝切换为该课题（下方表单不会展开）；要改内容，请点卡片里的「修改」。不同课题的文献与记录分开保存，不会混在一起显示。</text>
+
+    <block wx:if="{{topics.length}}">
+      <view
+        wx:for="{{topics}}"
+        wx:key="id"
+        wx:for-item="t"
+        wx:for-index="ti"
+        id="topic-item-{{ti}}"
+        class="entry {{t.active ? 'entry-active' : ''}}"
+        style="margin-top:16rpx;margin-bottom:0;"
+        data-id="{{t.id}}"
+        bindtap="switchTopic"
+      >
+        <view class="row">
+          <text class="entry-title" style="flex:1;">{{t.name}}</text>
+          <text class="chip {{t.active ? 'chip-info' : 'chip-gray'}}">{{t.active ? '当前课题' : '未选中'}}</text>
+        </view>
+        <view class="tiny" style="margin-top:6rpx;">第 {{t.revision}} 版 · 文献 {{t.refCount}} 条 · {{t.updatedAt || '尚未保存'}}</view>
+        <view class="btn-row" style="margin-bottom:0;">
+          <view id="topic-edit-{{ti}}" class="btn btn-small" data-id="{{t.id}}" catchtap="editTopic">修改</view>
+          <view id="topic-del-{{ti}}" class="btn btn-small btn-ghost" style="color:#a8201f;" data-id="{{t.id}}" catchtap="deleteTopic">删除</view>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty" style="padding:30rpx 20rpx;">还没有保存过的课题，点下面的按钮新建第一个。</view>
+  </view>
+
+  <!-- ===== 新建课题入口：仅表单收起时显示 ===== -->
+  <view class="card" wx:if="{{!formVisible}}">
+    <view id="btn-topic-new" class="btn btn-primary btn-block" bindtap="createNew">新建课题</view>
+    <text class="tiny">新建时会保留当前课题的资料，再给你一份空白表单，两个课题互不干扰。</text>
+  </view>
+
+  <!-- ===== 填写表单：点「新建课题」或某课题的「修改」后展开 ===== -->
+  <view id="topic-form-anchor"></view>
+  <block wx:if="{{formVisible}}">
+
+    <view class="warnbox" wx:if="{{formMode === 'new'}}">
+      正在<text style="font-weight:600;">新建课题</text>：填好后点底部「保存」，它会作为新的课题单独保存，其他课题不受影响。
+    </view>
+    <view class="warnbox" wx:elif="{{dirty}}">
+      当前有尚未保存的修改，切换或删除前请先点底部「保存」。
+    </view>
+
+    <view class="card">
+      <view class="row">
+        <text wx:if="{{formMode === 'new'}}" class="h1">填写新课题资料</text>
+        <text wx:else class="h1">修改课题资料</text>
+      </view>
+      <view class="row" style="margin-top:8rpx;">
+        <text class="tiny" wx:if="{{formMode === 'new'}}">尚未保存，保存后会成为新的当前课题</text>
+        <text class="tiny" wx:else>所属课题：{{topic.name}}（第 {{topic.revision}} 版）</text>
+      </view>
+
+      <view class="field" style="margin-top:20rpx;">
+        <text class="field-label">课题名称（必填）</text>
+        <textarea
+          id="topic-name"
+          class="textarea"
+          style="min-height:110rpx;"
+          value="{{topic.name}}"
+          data-field="name"
+          bindinput="onField"
+          placeholder="例如：校园二手书循环平台的供需匹配设计"
+          maxlength="80"
+          auto-height
+          show-confirm-bar="{{false}}"
+        />
+        <text class="field-hint">名称较长时会自动换行显示，不会截断。</text>
+      </view>
+
+      <view class="field">
+        <text class="field-label">研究问题</text>
+        <textarea class="textarea" value="{{topic.problem}}" data-field="problem" bindinput="onField" placeholder="你想回答的问题，一句话说清楚" maxlength="500" auto-height show-confirm-bar="{{false}}" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">研究对象或场景</text>
+        <textarea class="textarea" value="{{topic.target}}" data-field="target" bindinput="onField" placeholder="针对谁、在哪发生，例如：高职学生、北方老旧小区冬季供暖" maxlength="500" auto-height show-confirm-bar="{{false}}" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">期望完成的任务</text>
+        <textarea class="textarea" value="{{topic.task}}" data-field="task" bindinput="onField" placeholder="到底要产出什么，例如：做出可运行的原型、给出一份调查问卷结论、完成对比评测" maxlength="500" auto-height show-confirm-bar="{{false}}" />
+      </view>
+
+      <view class="field">
+        <text class="field-label">可用数据与条件</text>
+        <textarea class="textarea" value="{{topic.resources}}" data-field="resources" bindinput="onField" placeholder="能拿到的数据、设备、样本、预算、时间；没有就写「暂无」" maxlength="500" auto-height show-confirm-bar="{{false}}" />
+      </view>
+
+      <view class="field" style="margin-bottom:0;">
+        <text class="field-label">希望某篇论文支持的具体说法</text>
+        <textarea class="textarea" value="{{topic.claim}}" data-field="claim" bindinput="onField" placeholder="你要写进报告的那句话，例如：已有研究普遍认为 X 能降低 Y；不填则核验卡显示「未检查主张」" maxlength="500" auto-height show-confirm-bar="{{false}}" />
+        <text class="field-hint">这一条会直接决定核验卡第 3 项怎么判，写得越具体越好。</text>
+      </view>
+    </view>
+
+    <!-- 按学科补充 -->
+    <view class="card">
+      <view class="h1">按学科补充（可选）</view>
+      <text class="field-hint">不同学科需要的关键信息不一样，只填与你课题相关的项，不用凑满。</text>
+
+      <view class="field" style="margin-top:16rpx;" wx:for="{{topic.customFields}}" wx:key="id" wx:for-item="f" wx:for-index="idx">
+        <view class="row">
+          <text class="field-label" style="flex:1;">{{f.label}}</text>
+          <text class="tiny" style="color:#a8201f;" data-index="{{idx}}" catchtap="removeField">删除</text>
+        </view>
+        <textarea class="textarea" value="{{f.value}}" data-index="{{idx}}" bindinput="onCustomField" placeholder="填写该项的具体内容" maxlength="400" auto-height show-confirm-bar="{{false}}" />
+      </view>
+
+      <view class="h3" style="margin-top:18rpx;">常用项（点一下添加）</view>
+      <view class="tag-list">
+        <text class="chip chip-gray" wx:for="{{presets}}" wx:key="*this" data-label="{{item}}" bindtap="addPreset">+ {{item}}</text>
+      </view>
+
+      <view class="h3" style="margin-top:20rpx;">自定义一项</view>
+      <view class="field">
+        <input
+          id="topic-custom-name"
+          class="input"
+          value="{{newFieldLabel}}"
+          bindinput="onNewFieldLabel"
+          placeholder="补充项名称，例如：实验组 / 对照组设置"
+          maxlength="30"
+        />
+      </view>
+      <view id="btn-topic-addcustom" class="btn btn-small" bindtap="addCustom">添加这一项</view>
+    </view>
+
+    <!-- 表单底部操作 -->
+    <view class="card">
+      <view id="btn-topic-save" class="btn btn-primary btn-block" bindtap="saveTap">
+        {{formMode === 'new' ? '保存为新课题' : '保存修改'}}
+      </view>
+      <view id="btn-topic-delete" class="btn btn-block btn-ghost" wx:if="{{formMode === 'edit'}}" style="color:#a8201f;" bindtap="deleteTopic">
+        删除当前课题及其记录
+      </view>
+      <view id="btn-topic-discard" class="btn btn-block btn-ghost" wx:if="{{dirty}}" bindtap="discardDraft">
+        放弃未保存的修改
+      </view>
+      <view id="btn-topic-collapse" class="btn btn-block btn-ghost" bindtap="collapseForm">收起表单</view>
+      <text class="tiny">保存后表单会自动收起；删除会连同该课题下的文献与核验记录一起清除，不可恢复。</text>
+    </view>
+
+  </block>
+
+  <view class="tabbar-holder"></view>
+</view>

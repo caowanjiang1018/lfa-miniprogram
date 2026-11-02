@@ -1,0 +1,39 @@
+<view class="page home">
+
+  <!-- 品牌区：大号渐变标题 + 加粗副标题 -->
+  <view class="brand">
+    <view class="brand-name">文献适配助手</view>
+    <view class="brand-slogan">找到对的文献，核验手里的文献</view>
+  </view>
+
+  <!-- 两列布局：左列 帮我找文献 + 我的课题；右列 核验已有文献 + 核验记录 -->
+  <view class="entry-list">
+    <view class="col">
+      <view class="entry" hover-class="entry-hover" bindtap="goDiscover">
+        <view class="entry-icon entry-icon-discover"></view>
+        <view class="entry-title">帮我找文献</view>
+        <view class="entry-accent"></view>
+      </view>
+      <view class="sub" hover-class="sub-hover" bindtap="goTopic">
+        <view class="sub-icon sub-icon-topic"></view>
+        <view class="sub-title">我的课题</view>
+      </view>
+    </view>
+    <view class="col">
+      <view class="entry" hover-class="entry-hover" bindtap="goImport">
+        <view class="entry-icon entry-icon-verify"></view>
+        <view class="entry-title">核验已有文献</view>
+        <view class="entry-accent entry-accent-verify"></view>
+      </view>
+      <view class="sub" hover-class="sub-hover" bindtap="goRecord">
+        <view class="sub-icon sub-icon-record"></view>
+        <view class="sub-title">核验记录</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 次级入口已紧随各自主卡，剩余空隙落在 tabbar 之上 -->
+  <view class="flex-space"></view>
+
+  <view class="tabbar-holder"></view>
+</view>

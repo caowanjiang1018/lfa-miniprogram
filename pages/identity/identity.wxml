@@ -1,0 +1,468 @@
+<view class="page" wx:if="{{ref}}">
+
+  <view class="card">
+    <view class="row">
+      <text class="h1">身份核验详情</text>
+      <text class="chip {{idn ? ('chip-' + idn.tone) : 'chip-gray'}}">
+        {{idn ? (idn.icon + ' ' + idn.statusText) : '· 尚未核验'}}
+      </text>
+    </view>
+    <view class="text" style="margin-top:10rpx;font-weight:600;">{{ref.title || '（未填写题名）'}}</view>
+    <view class="tiny" wx:if="{{ref.authors}}">作者：{{ref.authors}}</view>
+    <view class="tiny" wx:if="{{ref.year}}">年份：{{ref.year}}</view>
+    <view class="tiny" wx:if="{{ref.venue}}">出处：{{ref.venue}}</view>
+    <view class="tiny" wx:if="{{ref.doi}}">DOI：{{ref.doi}}</view>
+  </view>
+
+  <view class="infobox">
+    本页面只处理「这条文献的题录信息是否对得上」，不涉及内容是否正确、能否支持你的论点。
+    没有 DOI、接口未收录、网络失败，三种情况互不相等，都不会被判定为「文献不存在」。
+  </view>
+
+  <view class="boundarybox">
+    自动核验仅覆盖在公开元数据库中有记录的外文文献。中文文献、中文学位论文、书籍、无 DOI 文献、部分预印本，
+    大概率无法自动核验，不代表文献虚假，统一进入人工核验流程，由你自行补充证据核对。
+    学术库没命中时由通义千问联网检索兜底，但那也只是线索，不等于已核实。
+  </view>
+
+  <!-- 无核验结果 -->
+  <view class="card" wx:if="{{!hasIdentity}}">
+    <view class="h2">还没有做过自动核验</view>
+    <view class="muted">
+      点下面按钮发起核验：先用通义千问清洗你粘贴的原文（任务 A）→ 拿结构化字段查
+      OpenAlex（优先）→ Crossref（降级）→ 都没命中或判断为中文文献时，
+      再由通义千问联网检索兜底（任务 B）。全部请求经云函数中转，密钥只在云端。
+    </view>
+    <view class="btn btn-primary btn-block" style="margin-top:16rpx;" bindtap="redo">开始核验</view>
+  </view>
+
+  <block wx:if="{{hasIdentity}}">
+    <view class="card">
+      <view class="status-line">
+        <text class="h2">核验结论</text>
+        <text class="chip {{'chip-' + idn.tone}}">{{idn.icon}} {{idn.statusText}}</text>
+      </view>
+      <view class="statusbar {{'statusbar-' + idn.tone}}" style="margin-top:12rpx;">
+        <text class="statusbar-text">{{idn.label}}</text>
+      </view>
+      <view class="muted" style="margin-top:8rpx;">{{idn.reason}}</view>
+      <view class="tiny" wx:if="{{idn.statusDesc}}">判定含义：{{idn.statusDesc}}（{{idn.colorHint}}）</view>
+
+      <view class="divider"></view>
+      <view class="tiny" wx:if="{{idn.providerName}}">
+        来源：{{idn.providerName}}｜取得时间：{{idn.fetchedAt}}｜HTTP：{{idn.httpStatus}}
+      </view>
+      <view class="tiny" wx:if="{{idn.method}}">方式：{{idn.method}}</view>
+      <view class="tiny" wx:if="{{idn.query}}">检索关键词：{{idn.query}}</view>
+      <view class="tiny" wx:if="{{idn.sourceUrl}}">原文链接：{{idn.sourceUrl}}</view>
+      <view class="tiny" wx:if="{{idn.hasRaw}}">原始返回留存状态：{{idn.rawNote}}</view>
+
+      <view class="warnbox" style="margin-top:12rpx;" wx:if="{{idn.retracted}}">
+        ［重要］来源标记该文献【已被撤稿】，请先核实撤稿原因。
+      </view>
+
+      <!-- 「题名一致 + 仅 1 项不一致」：判定为通过，但差异必须人工确认 -->
+      <view class="warnbox" style="margin-top:12rpx;" wx:if="{{idn.needsHumanConfirm}}">
+        <view class="h3">这项差异需要你确认</view>
+        <view>本次按「题名一致且仅 1 处不一致」判定为核验通过，但差异并没有消失：</view>
+        <view wx:for="{{idn.conflicts}}" wx:key="key" style="margin-top:8rpx;">
+          · {{item.name}}（{{item.mark}}）：你填「{{item.input}}」，来源记录「{{item.record}}」
+        </view>
+        <view class="btn-row" style="margin-top:12rpx;">
+          <view wx:if="{{!ack}}" id="i-ack" class="btn btn-small btn-primary" bindtap="ackConflict">我已核对这项差异</view>
+          <view wx:else class="chip chip-ok">已人工确认（{{ack.at}}）</view>
+        </view>
+        <view wx:if="{{ack}}" class="tiny" style="margin-top:8rpx;">{{ack.note}}</view>
+      </view>
+
+      <view class="btn-row" style="margin-top:14rpx;">
+        <view class="btn btn-small" wx:if="{{idn.sourceUrl}}" bindtap="copySourceLink">复制原文链接</view>
+        <view class="btn btn-small btn-ghost" wx:if="{{idn.hasRaw}}" bindtap="copyRaw">复制来源原始返回</view>
+        <view class="btn btn-small btn-ghost" bindtap="redo">重新核验</view>
+      </view>
+    </view>
+
+    <!-- 逐字段比对 -->
+    <view class="card" wx:if="{{idn.hasChecks}}">
+      <view class="h2">逐字段比对</view>
+      <view class="tiny">每个字段的判定都有文字标记，不只用颜色区分；缺失字段只标「缺失」，不会补造内容。</view>
+      <view wx:for="{{idn.checks}}" wx:key="name" class="check-detail">
+        <view class="status-line">
+          <text class="check-name">{{item.name}}</text>
+          <text class="chip {{'chip-' + item.tone}}">{{item.mark}}</text>
+        </view>
+        <view class="cmp-line" wx:if="{{item.input}}">你填写：{{item.input}}</view>
+        <view class="cmp-line" wx:if="{{item.hasRecord}}">来源记录：{{item.record}}</view>
+        <view class="cmp-line" wx:for="{{item.yearDetail}}" wx:for-item="yd" wx:key="kind">
+          · {{yd.kind}}：{{yd.value}}（完整日期 {{yd.full}}）
+        </view>
+        <view class="cmp-line">{{item.note}}</view>
+      </view>
+    </view>
+
+    <!-- 核验成功后的一键补全（内容全部来自来源真实返回） -->
+    <view class="card" wx:if="{{fill && fill.ok}}">
+      <view class="status-line">
+        <text class="h2">补全题录与材料</text>
+        <text class="chip chip-info">来源：{{fill.sourceName}}</text>
+      </view>
+      <view class="tiny" style="margin-top:8rpx;">
+        这些内容全部来自「{{fill.sourceName}}」{{fill.fetchedAt ? '（取得时间 ' + fill.fetchedAt + '）' : ''}}的返回。
+        默认只补【你这里是空的】字段；你填过、只是写法与来源不同的项不会自动改，需你勾选确认（写法差异不等于核验冲突）。
+      </view>
+
+      <view class="btn-row" style="margin-top:12rpx;">
+        <view id="i-fill-toggle" class="btn btn-small" bindtap="toggleFill">
+          {{showFill ? '收起补全项' : '展开补全项（可补 ' + fill.canFill + ' 项' + (fill.canConflict ? '，另有 ' + fill.canConflict + ' 项冲突待确认' : '') + '）'}}
+        </view>
+      </view>
+
+      <block wx:if="{{showFill}}">
+        <view wx:for="{{fill.fields}}" wx:key="key" class="block" style="margin-top:12rpx;padding:16rpx;">
+          <view class="status-line">
+            <text class="check-name">{{item.label}}</text>
+            <text class="chip {{item.mode === 'conflict' ? 'chip-warn' : (item.mode === 'fill' ? 'chip-ok' : 'chip-gray')}}">{{item.modeText}}</text>
+          </view>
+          <view class="cmp-line" wx:if="{{item.current}}">你现在：{{item.current}}</view>
+          <view class="cmp-line" wx:else>你现在：（空）</view>
+          <view class="cmp-line" wx:if="{{item.incoming}}">来源：{{item.incoming}}</view>
+          <view class="cmp-line" wx:else>来源没有这个字段</view>
+          <view class="btn-row" style="margin-top:8rpx;">
+            <view wx:if="{{item.mode === 'fill' || item.mode === 'conflict'}}"
+              class="btn btn-small {{item.picked ? 'entry-active' : ''}}"
+              data-index="{{index}}" bindtap="toggleFillField">
+              {{item.picked ? '已勾选' : '勾选'}}{{item.mode === 'conflict' ? '（覆盖我填的）' : ''}}
+            </view>
+          </view>
+        </view>
+
+        <view class="block" style="margin-top:12rpx;padding:16rpx;">
+          <view class="status-line">
+            <text class="check-name">摘要</text>
+            <text class="chip {{fill.abstract.mode === 'fill' ? 'chip-ok' : (fill.abstract.mode === 'conflict' ? 'chip-warn' : 'chip-gray')}}">{{fill.abstract.modeText}}</text>
+          </view>
+          <view class="cmp-line">{{fill.abstract.note}}</view>
+          <view wx:if="{{fill.abstract.text}}" class="cmp-line" style="max-height:200rpx;overflow:hidden;">
+            来源摘要：{{fill.abstract.text}}
+          </view>
+          <view class="btn-row" style="margin-top:8rpx;">
+            <view wx:if="{{fill.abstract.mode === 'fill' || fill.abstract.mode === 'conflict'}}"
+              id="i-fill-abs" class="btn btn-small {{fill.abstract.picked ? 'entry-active' : ''}}"
+              bindtap="toggleFillAbstract">
+              {{fill.abstract.picked ? '已勾选' : '勾选补全摘要'}}
+            </view>
+          </view>
+        </view>
+
+        <view class="block" style="margin-top:12rpx;padding:16rpx;">
+          <view class="status-line">
+            <text class="check-name">原文节选</text>
+            <text class="chip chip-gray">只能你手工填写</text>
+          </view>
+          <view class="cmp-line">{{fill.excerpt.note}}</view>
+          <view class="btn-row" style="margin-top:8rpx;">
+            <view wx:if="{{fill.abstract.text}}" id="i-fill-material" class="btn btn-small" bindtap="useAbstractAsMaterial">
+              把来源摘要放入材料区（标注为摘要）
+            </view>
+          </view>
+        </view>
+
+        <view id="i-fill-do" class="btn btn-primary btn-block" style="margin-top:16rpx;" bindtap="doFill">
+          按勾选内容补全
+        </view>
+      </block>
+
+      <view wx:if="{{fillNote}}" class="tiny" style="margin-top:12rpx;">{{fillNote}}</view>
+    </view>
+
+    <!-- 候选列表 -->
+    <view class="card" wx:if="{{idn.hasCandidates}}">
+      <view class="h2">候选记录（{{idn.candidates.length}} 条）</view>
+      <view class="warnbox">
+        排序只是按相似度排的，排第一不等于正确。实测中曾出现「按真实标题检索，排第一却是另一篇评论文章」的情况，
+        所以这里不会自动替你认定。请比对手上的原文后点选对应条目。
+      </view>
+      <view
+        wx:for="{{idn.candidates}}"
+        wx:key="idx"
+        class="candidate"
+        id="cand-{{item.idx}}"
+        data-doi="{{item.doi}}"
+        data-aminer-id="{{item.aminerId}}"
+        bindtap="pickCandidate"
+      >
+        <view class="row">
+          <text class="cand-rank">#{{item.rank}}</text>
+          <text class="tiny" wx:if="{{item.hasSim}}">综合 {{item.overall}}｜题名 {{item.titleScore}}｜作者 {{item.authorScore}}</text>
+          <text class="tiny" wx:else>无相似度评分（大模型检索给出的链接，需你自行打开核对）</text>
+        </view>
+        <view class="text" style="margin-top:6rpx;font-weight:600;">{{item.title}}</view>
+        <view class="tiny" wx:if="{{item.url}}">链接：{{item.url}}</view>
+        <view class="tiny" wx:if="{{item.authors}}">作者：{{item.authors}}</view>
+        <view class="tiny">出处：{{item.container}}｜{{item.yearText}}</view>
+        <view class="tiny" wx:if="{{item.doi}}">DOI：{{item.doi}}</view>
+        <view class="tiny" wx:if="{{item.aminerId && !item.doi}}">
+          来源只给了 AMiner 论文 id（没有 DOI），选定后按该 id 向 AMiner 精确查询并逐字段比对。
+        </view>
+        <view class="tiny" wx:if="{{item.abstract}}">
+          来源返回了摘要（{{item.abstractFrom}}），选定核验通过后可一键补全到你的条目。
+        </view>
+        <view class="btn btn-small" style="margin-top:10rpx;">选它并比对</view>
+      </view>
+    </view>
+
+    <!-- 通义千问 · 任务A 预处理提取 -->
+    <view class="card" wx:if="{{idn.hasAiExtract}}">
+      <view class="h2">千问预处理提取（任务 A）</view>
+      <view class="tiny">
+        先用通义千问把你粘贴的原文清洗、拆解成结构化字段，再拿去查 OpenAlex / Crossref。
+        你已填写的字段保持原值，只有空缺字段会被补齐。
+      </view>
+      <view class="check-detail" style="margin-top:10rpx;">
+        <view class="cmp-line" wx:if="{{idn.aiExtract.title}}">提取到的英文题名：{{idn.aiExtract.title}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.titleOrig}}">原文题名：{{idn.aiExtract.titleOrig}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.authors}}">作者：{{idn.aiExtract.authors}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.year}}">年份：{{idn.aiExtract.year}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.venue}}">期刊 / 会议：{{idn.aiExtract.venue}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.doi}}">DOI：{{idn.aiExtract.doi}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.confidence != null}}">模型把握度：{{idn.aiExtract.confidence}}</view>
+        <view class="cmp-line">模型：{{idn.aiExtract.model}}｜耗时 {{idn.aiExtract.ms}}ms｜{{idn.aiExtract.requestedAt}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiExtract.failureText}}">失败原因：{{idn.aiExtract.failureText}}</view>
+        <view class="cmp-line">{{idn.aiExtract.note}}</view>
+      </view>
+    </view>
+
+    <!-- 通义千问 · 任务B 联网检索兜底（题录与链接分开展示） -->
+    <view class="card" wx:if="{{idn.hasAiSearch}}">
+      <view class="h2">千问联网检索（任务 B · 兜底）</view>
+      <view class="warnbox">
+        这是大模型的联网检索结果，【不等于】权威数据库核验。实测中模型曾把同一期刊同一期里的
+        另一篇文章当成命中。请你自行打开链接核对题名、作者、年份、卷期，
+        确认后再在「人工确认」里给出你的结论——本系统不会据此判定「已核实」。
+        本区块刻意把【题录】和【链接】分成两块独立展示：两者互不依赖，
+        「找到了题录但没留下能稳定访问的链接」是正常情况，不会被说成「没检索到」。
+      </view>
+      <view class="status-line" style="margin-top:12rpx;">
+        <text class="check-name">本次结果状态</text>
+        <text class="chip {{idn.aiSearch.noClue ? 'chip-gray' : (idn.aiSearch.hasLinks ? 'chip-ok' : 'chip-warn')}}">
+          {{idn.aiSearch.outcomeText}}
+        </text>
+      </view>
+      <view class="cmp-line">
+        模型：{{idn.aiSearch.model}}｜耗时 {{idn.aiSearch.ms}}ms｜{{idn.aiSearch.requestedAt}}｜
+        实际触发联网搜索：{{idn.aiSearch.searched ? '是（' + idn.aiSearch.searchCount + ' 次）' : '否'}}
+      </view>
+      <view class="cmp-line" wx:if="{{idn.aiSearch.summary}}">模型自述：{{idn.aiSearch.summary}}</view>
+
+      <!-- ================= 情况③：完全没有检索线索 ================= -->
+      <block wx:if="{{idn.aiSearch.noClue}}">
+        <divider></divider>
+        <view class="warnbox">未检索到该文献线索。</view>
+        <view class="cmp-line">{{idn.aiSearch.recordMeta.reason}}</view>
+        <view class="cmp-line">
+          这只说明【本次联网搜索没有拿到可信的文献线索】，不等于文献虚假——
+          中文文献、学位论文、书籍、预印本本来就很少被境外数据库收录。
+          请按下面的提示自行去知网、万方或学校图书馆核对，或到页面底部「人工补证」留下你的证据。
+        </view>
+      </block>
+
+      <!-- ================= ① recordMeta：本次检索到的题录 ================= -->
+      <block wx:if="{{idn.aiSearch.hasRecordMeta}}">
+        <divider></divider>
+        <view class="status-line">
+          <text class="check-name">本次检索到的题录</text>
+          <text class="chip chip-purple">取自本次搜索摘要 · 缺失未补造</text>
+        </view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.title}}">题名：{{idn.aiSearch.recordMeta.title}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.authorsText}}">作者：{{idn.aiSearch.recordMeta.authorsText}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.year}}">年份：{{idn.aiSearch.recordMeta.year}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.venue}}">期刊 / 会议：{{idn.aiSearch.recordMeta.venue}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.doi}}">DOI：{{idn.aiSearch.recordMeta.doi}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.sourceName}}">这条题录取自：{{idn.aiSearch.sourceName}}</view>
+        <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.confidence != null}}">
+          模型把握度：{{idn.aiSearch.recordMeta.confidence}}（仅作参考，不作为结论依据）
+        </view>
+
+        <view class="check-detail" wx:if="{{idn.aiSearch.hasAbstract}}" style="margin-top:10rpx;">
+          <view class="status-line">
+            <text class="check-name">来源给出的摘要</text>
+            <text class="chip chip-info">照抄本次搜索摘要 · 系统未改写</text>
+          </view>
+          <view class="cmp-line">{{idn.aiSearch.recordMeta.abstract}}</view>
+          <view class="cmp-line" wx:if="{{idn.aiSearch.recordMeta.abstractTruncated}}">
+            摘要较长已做本地截断留存，完整摘要请打开原始来源查看。
+          </view>
+        </view>
+        <view class="cmp-line" wx:else>
+          【本次搜索没有提供摘要】来源没给摘要就是没有，系统不撰写、不改写摘要；
+          没有摘要时也绝不生成虚假页码或原文摘录。如需确认内容，请自行读取原文。
+        </view>
+
+        <view class="tiny" wx:if="{{idn.aiSearch.recordMeta.hasFieldsAbsent}}">
+          本次搜索没拿到的字段（如实列出，不补造）：{{idn.aiSearch.recordMeta.fieldsAbsentText}}
+        </view>
+        <view class="warnbox" style="margin-top:10rpx;" wx:if="{{idn.aiSearch.partialRecovery}}">
+          【注意】模型本次回答被长度截断，上面的题录是从截断输出里抢救出来的部分字段，可能不完整，请自行核对。
+        </view>
+      </block>
+
+      <!-- ================= ② candidateLinks：主展示区链接 ================= -->
+      <divider></divider>
+      <view class="status-line">
+        <text class="check-name">链接可用性</text>
+        <text class="chip {{idn.aiSearch.hasLinks ? 'chip-ok' : 'chip-gray'}}">
+          {{idn.aiSearch.hasLinks ? '🔗 ' : '⊘ '}}{{idn.aiSearch.linkStatusText}}
+        </text>
+      </view>
+      <view class="cmp-line" wx:if="{{!idn.aiSearch.hasLinks}}">
+        本次检索未找到可稳定访问的原文链接，这【不影响】上面的题录结论：
+        程序要求模型【只使用本次检索实际命中的来源链接】，并做了四层机器校验加一次真机访问——
+        不在本次来源里、是检索列表页、路径是拼接编号、服务器明确返回 404 / 410 的都会被丢弃。
+        宁可如实留空，也不给你一个点开是 404 的假地址。
+        <text wx:if="{{idn.aiSearch.hasRawCandidateLinks}}">下面的折叠区还留着本次搜索返回的原始来源链接，供你手动尝试。</text>
+      </view>
+      <view class="cmp-line" wx:else>
+        下面是通过校验并真实访问过的链接；403 / 429 / 超时 / 5xx / 时间不足没测到的都标为「暂无法验证连通性」，
+        它们被保留但【不代表】链接有效，请你自己打开确认。
+      </view>
+
+      <view class="check-detail" wx:for="{{idn.aiSearch.candidateLinks}}" wx:key="idx" style="margin-top:10rpx;">
+        <view class="status-line">
+          <text class="check-name">{{item.kind}}</text>
+          <text class="chip {{item.reachable ? 'chip-ok' : 'chip-warn'}}">{{item.probeStateText}}</text>
+        </view>
+        <view class="cmp-line" wx:if="{{item.source}}">来源：{{item.source}}</view>
+        <view class="cmp-line">{{item.url}}</view>
+        <view class="cmp-line" wx:if="{{item.note}}">{{item.note}}</view>
+        <view class="cmp-line">实测结论：{{item.probeText}}</view>
+        <view class="btn btn-small" style="margin-top:8rpx;" data-url="{{item.url}}" bindtap="copyLink">复制链接</view>
+      </view>
+
+      <!-- ================= ④ 折叠区一：本次搜索原始候选链接（未做连通性核验） ================= -->
+      <block wx:if="{{idn.aiSearch.hasRawCandidateLinks}}">
+        <divider></divider>
+        <view id="i-rawlinks" class="btn btn-small btn-ghost" bindtap="toggleRawLinks">
+          {{showRawLinks ? '收起' : '展开'}}本次搜索原始候选链接（{{idn.aiSearch.rawCandidateLinks.length}} 条）
+        </view>
+        <view class="panel" wx:if="{{showRawLinks}}">
+          <view class="status-line">
+            <text class="h3">本次搜索原始候选链接</text>
+            <text class="chip chip-warn">未做连通性核验</text>
+          </view>
+          <view class="warnbox" style="margin-top:8rpx;">
+            下列链接是本次联网搜索返回的原始来源链接，【没有】经过上面的机器校验与可达性探测，
+            可能失效、跳转错误或根本打不开，请勿直接当作可用证据。
+            它们放在这个次要区域，仅供你手动尝试核对；主展示区只放通过了校验或已标注状态的链接。
+          </view>
+          <view class="check-detail" wx:for="{{idn.aiSearch.rawCandidateLinks}}" wx:key="idx" style="margin-top:10rpx;">
+            <view class="status-line">
+              <text class="check-name">{{item.name}}</text>
+              <text class="chip {{item.inMain ? 'chip-ok' : 'chip-gray'}}">
+                {{item.inMain ? '已进主展示区' : '未进主展示区'}}
+              </text>
+            </view>
+            <view class="cmp-line">{{item.url}}</view>
+            <view class="cmp-line" wx:if="{{item.dropReason}}">{{item.dropReason}}</view>
+            <view class="btn btn-small" style="margin-top:8rpx;" data-url="{{item.url}}" bindtap="copyLink">复制链接去浏览器核对</view>
+          </view>
+        </view>
+      </block>
+
+      <!-- ================= ④ 折叠区二：链接审计日志 ================= -->
+      <block wx:if="{{idn.aiSearch.linkAudit.length}}">
+        <divider></divider>
+        <view id="i-audit" class="btn btn-small btn-ghost" bindtap="toggleAudit">
+          {{showAudit ? '收起' : '展开'}}链接校验 / 探测日志（{{idn.aiSearch.linkAudit.length}} 条）
+        </view>
+        <view class="panel" wx:if="{{showAudit}}">
+          <view class="h3">每条链接的保留 / 丢弃原因</view>
+          <view class="logrow" wx:for="{{idn.aiSearch.linkAudit}}" wx:key="idx">
+            · {{item.kept ? '保留' : '丢弃'}}：{{item.url}}<block wx:if="{{item.source}}">｜来源 {{item.source}}</block><block wx:if="{{item.reason}}">｜{{item.reason}}</block>
+          </view>
+          <view class="hr"></view>
+          <view class="tiny">
+            是否逐条真实访问过：{{idn.aiSearch.probed ? '是' : '否'}}<block wx:if="{{!idn.aiSearch.probed && idn.aiSearch.probeSkippedReason}}">（{{idn.aiSearch.probeSkippedReason}}）</block>
+          </view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 来源日志 -->
+    <view class="card" wx:if="{{idn.tried.length}}">
+      <view class="h2">数据访问日志</view>
+      <view class="tiny">记录本次核验实际请求过的每个数据源、检索词、接口地址与请求时间，便于事后追溯。</view>
+      <view class="logrow" wx:for="{{idn.tried}}" wx:key="index" style="margin-top:8rpx;">
+        · {{item.providerName}}｜{{item.method}}｜HTTP {{item.httpStatus}}｜{{item.requestedAt}}
+        <block wx:if="{{item.failureText}}">｜{{item.failureText}}</block>
+        <block wx:if="{{item.query}}">
+          ｜检索词：{{item.query}}
+        </block>
+      </view>
+    </view>
+  </block>
+
+  <!-- 人工补证 -->
+  <view class="card">
+    <view class="h2">人工补证 / 人工备注</view>
+    <view class="field-hint">
+      当自动核验查不到（无 DOI、未收录、网络问题）时，可自己去期刊官网、知网、万方或学校图书馆数据库核对，
+      把看到的信息填在这里。保存后会【新增一条备注】，明确标记为人工填写，不会伪装成自动核验结论，
+      也不会覆盖系统自动核验的原始结果。小程序不会代你登录学校数据库。
+    </view>
+
+    <view class="field">
+      <text class="field-label">证据来源名称</text>
+      <input class="input" value="{{manual.sourceName}}" data-key="sourceName" bindinput="onManual" placeholder="例如：期刊官网 / 知网 / 万方 / Web of Science" maxlength="60" />
+    </view>
+    <view class="field">
+      <text class="field-label">该来源的链接</text>
+      <textarea class="textarea" value="{{manual.url}}" data-key="url" bindinput="onManual" placeholder="粘贴你在该来源看到条目的页面链接" auto-height maxlength="300" show-confirm-bar="{{false}}" />
+    </view>
+    <view class="field">
+      <text class="field-label">你在来源上看到的题名</text>
+      <textarea class="textarea" value="{{manual.title}}" data-key="title" bindinput="onManual" placeholder="照抄来源页面上的题名" auto-height maxlength="300" show-confirm-bar="{{false}}" />
+    </view>
+    <view class="field">
+      <text class="field-label">你在来源上看到的作者</text>
+      <textarea class="textarea" value="{{manual.authors}}" data-key="authors" bindinput="onManual" placeholder="照抄来源页面上的作者" auto-height maxlength="300" show-confirm-bar="{{false}}" />
+    </view>
+    <view class="field">
+      <text class="field-label">年份</text>
+      <input class="input" value="{{manual.year}}" data-key="year" bindinput="onManual" placeholder="例如：2021" maxlength="10" />
+    </view>
+    <view class="field">
+      <text class="field-label">期刊 / 出版方</text>
+      <input class="input" value="{{manual.venue}}" data-key="venue" bindinput="onManual" placeholder="例如：建筑节能" maxlength="60" />
+    </view>
+    <view class="field">
+      <text class="field-label">备注</text>
+      <textarea class="textarea" value="{{manual.note}}" data-key="note" bindinput="onManual" placeholder="例如：学校数据库检索到的卷期页码为 2021, 49(3): 12-20" auto-height maxlength="300" show-confirm-bar="{{false}}" />
+    </view>
+
+    <view id="btn-manual-save" class="btn btn-primary btn-block" style="margin-top:16rpx;" bindtap="saveManual">新增人工备注</view>
+    <view class="tiny" style="margin-top:8rpx;">
+      提示：人工备注只做留档，不构成自动核验证据；「原文支持 / 与原文不符」请在「人工确认」中给出。
+    </view>
+  </view>
+
+  <!-- 已有人工备注列表 -->
+  <view class="card" wx:if="{{manualList.length}}">
+    <view class="h2">已保存的人工备注（{{manualList.length}} 条）</view>
+    <view wx:for="{{manualList}}" wx:key="id" class="check-detail">
+      <view class="status-line">
+        <text class="check-name">备注 {{index + 1}}</text>
+        <text class="chip chip-purple">人工填写 · 非自动</text>
+      </view>
+      <view class="cmp-line">时间：{{item.at}}</view>
+      <view class="cmp-line" wx:if="{{item.sourceName}}">证据来源：{{item.sourceName}}</view>
+      <view class="cmp-line" wx:if="{{item.url}}">链接：{{item.url}}</view>
+      <view class="cmp-line" wx:if="{{item.title}}">题名：{{item.title}}</view>
+      <view class="cmp-line" wx:if="{{item.authors}}">作者：{{item.authors}}</view>
+      <view class="cmp-line" wx:if="{{item.year}}">年份：{{item.year}}</view>
+      <view class="cmp-line" wx:if="{{item.venue}}">期刊 / 出版方：{{item.venue}}</view>
+      <view class="cmp-line" wx:if="{{item.note}}">备注：{{item.note}}</view>
+    </view>
+  </view>
+
+  <view class="tabbar-holder"></view>
+</view>

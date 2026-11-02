@@ -1,0 +1,9 @@
+{
+  "name": "lfaVerify",
+  "version": "2.0.0",
+  "description": "文献适配助手 · 文献身份与题录核验（OpenAlex 优先，Crossref 降级；仅云函数内发起外网请求）",
+  "main": "index.js",
+  "private": true,
+  "license": "MIT",
+  "dependencies": {}
+}

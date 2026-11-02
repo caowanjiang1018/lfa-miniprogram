@@ -1,0 +1,325 @@
+<view class="page">
+
+  <view class="empty" wx:if="{{!ref}}">
+    没有找到这条文献记录。
+  </view>
+
+  <block wx:if="{{ref}}">
+
+    <!-- 文献与课题 -->
+    <view class="topicbar">
+      <view class="row">
+        <text class="h3">课题：{{topic.name || '（未填写）'}}</text>
+        <text class="chip chip-info">第 {{topic.revision}} 版</text>
+      </view>
+      <text class="tiny">对象/场景：{{topic.target || '未填写'}}｜期望任务：{{topic.task || '未填写'}}</text>
+      <text class="tiny" wx:if="{{topic.claim}}">拟支持说法：{{topic.claim}}</text>
+    </view>
+
+    <view class="card">
+      <view class="row">
+        <text class="h1">课题适配与主张核验</text>
+        <text class="chip {{view.confirmed ? 'chip-ok' : 'chip-gray'}}">
+          {{view.confirmed ? '✓ ' : '· '}}{{view.confirmText}}
+        </text>
+      </view>
+      <view class="text" style="margin-top:10rpx;font-weight:600;">{{ref.title}}</view>
+      <view class="tiny">{{ref.authors}} · {{ref.year}} · {{ref.venue}}</view>
+
+      <!-- 运行时真实服务说明：区分「开发助手」与「上线后真正在跑的服务」 -->
+      <view class="boundarybox" style="margin-top:14rpx;">
+        <text class="statusbar-text">运行时真实调用什么（先说清楚，避免误解）</text>
+        <view class="tiny" style="margin-top:8rpx;">{{notice.lines[0]}}</view>
+        <view class="tiny" style="margin-top:6rpx;">{{notice.lines[1]}}</view>
+        <view class="btn btn-small btn-ghost" style="margin-top:10rpx;" bindtap="toggleRuntime">
+          {{showRuntime ? '收起补充说明' : '展开补充说明'}}
+        </view>
+        <block wx:if="{{showRuntime}}">
+          <view class="tiny" style="margin-top:8rpx;">{{notice.lines[2]}}</view>
+          <view class="tiny" style="margin-top:6rpx;">
+            材料未配置或调用失败时，本页会明确显示「未执行 AI 分析」，不会用任何看起来像结论的文字代替。
+          </view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 状态：成功 / 未配置 / 失败 / 材料不足，全部可见 -->
+    <view class="card">
+      <view class="status-line">
+        <text class="status-title">本次分析状态</text>
+        <text class="chip {{'chip-' + view.statusTone}}">{{view.statusIcon}} {{view.statusText}}</text>
+      </view>
+
+      <view wx:if="{{materialBlocked}}" class="warnbox" style="margin-top:12rpx;">
+        【未发起分析 · 没有可用材料】{{materialBlockedText}}
+      </view>
+      <view wx:elif="{{!view.hasResult}}" class="warnbox" style="margin-top:12rpx;">
+        这条文献还没有做过课题适配分析。分析只会使用你提供的材料（摘要或原文节选），
+        不会去抓全文，也不会凭题名相似度下结论。
+      </view>
+      <block wx:else>
+        <view wx:if="{{view.status === 'config_failed'}}" class="warnbox" style="margin-top:12rpx;">
+          运行时分析服务未配置：本次【没有】执行任何 AI 分析，下面也不会有任何分析结论。
+          <view class="tiny" style="margin-top:8rpx;">{{view.failureText}}</view>
+        </view>
+        <view wx:elif="{{view.status === 'no_material'}}" class="warnbox" style="margin-top:12rpx;">
+          没有任何可用材料，未做分析。
+          <view class="tiny" style="margin-top:8rpx;">{{view.note}}</view>
+        </view>
+        <view wx:elif="{{view.status === 'failed' || view.status === 'cloud_unavailable'}}"
+              class="warnbox" style="margin-top:12rpx;">
+          分析未完成，本次没有产出任何结论（这不代表该文献不符合课题）。
+          <view class="tiny" style="margin-top:8rpx;">{{view.failureText}}</view>
+        </view>
+        <view wx:elif="{{view.stale}}" class="warnbox" style="margin-top:12rpx;">{{view.staleText}}</view>
+        <view wx:if="{{view.note && view.ok}}" class="tiny" style="margin-top:10rpx;">{{view.note}}</view>
+      </block>
+
+      <view class="btn-row" style="margin-top:14rpx;">
+        <view id="a-run" class="btn btn-small" bindtap="run">
+          {{busy ? '分析中…' : (view.hasResult ? '重新分析' : '开始分析（最长约 20 秒）')}}
+        </view>
+        <view id="a-evidence" class="btn btn-small btn-ghost" bindtap="goEvidence">补充 / 修正材料</view>
+      </view>
+      <view class="tiny" style="margin-top:6rpx;">
+        分析只用你提供的材料：来源摘要或你粘贴的原文节选。没有全文时，任何结论都不会以「全文写了…」为依据。
+      </view>
+    </view>
+
+    <!-- 有结论时的详细内容 -->
+    <block wx:if="{{view.hasResult && view.ok}}">
+
+      <!-- 证据等级与阅读范围 -->
+      <view class="card">
+        <view class="status-line">
+          <text class="status-title">阅读范围与证据等级</text>
+          <text class="chip {{view.abstractOnly ? 'chip-warn' : 'chip-gray'}}">{{view.evidenceLevelText}}</text>
+        </view>
+        <view class="muted" style="margin-top:8rpx;">{{view.readingScope}}</view>
+        <view class="tiny" style="margin-top:6rpx;">本次使用的材料：{{view.materialsText || '（无）'}}</view>
+        <view wx:if="{{view.abstractOnly}}" class="warnbox" style="margin-top:12rpx;">
+          【基于摘要初筛】本次只有来源摘要，没有原文节选。摘要不足以支撑全文层面的结论，
+          下面所有内容都不能当作「已读过全文」的结果使用。
+        </view>
+        <view class="tiny" style="margin-top:6rpx;">
+          分析服务：{{view.model || '—'}}｜时间：{{view.at || '—'}}<block wx:if="{{view.ms}}">｜耗时 {{view.ms}} ms</block>
+        </view>
+        <view wx:if="{{view.statsText}}" class="tiny" style="margin-top:6rpx;">摘录校验：{{view.statsText}}</view>
+      </view>
+
+      <!-- ① 逐项对照：课题要求 vs 文献实际 -->
+      <view class="card">
+        <view class="h2">一、课题要求与文献实际的逐项对照</view>
+        <view class="tiny">下面每一项都分成两块：【分析服务的判断】与【你材料里的原文摘录】。
+          摘录必须能在你粘贴的内容里定位到；定位不到的会被标为证据不足。</view>
+
+        <view wx:for="{{view.dimensions}}" wx:key="key" class="block">
+          <view class="status-line">
+            <text class="status-title">{{item.label}}</text>
+            <text class="chip {{'chip-' + item.tone}}">{{item.verdictText}}</text>
+          </view>
+          <view class="cmp-line">课题这边要求：{{item.topicText}}</view>
+          <view class="cmp-line">分析服务判断：{{item.aiText}}</view>
+          <view wx:if="{{item.hasNote}}" class="tiny">判断说明：{{item.note}}</view>
+          <view wx:if="{{item.downgraded}}" class="warnbox" style="margin-top:8rpx;">{{item.downgradeText}}</view>
+
+          <block wx:if="{{item.hasQuotes}}">
+            <view class="h3" style="margin-top:10rpx;">你材料里的原文摘录（{{item.locatedCount}}/{{item.quotes.length}} 条可定位）</view>
+            <view wx:for="{{item.quotes}}" wx:for-item="q" wx:key="text" class="check-detail">
+              <view class="cmp-line">「{{q.text}}」</view>
+              <view class="tiny">出处标记：{{q.locator}}</view>
+              <view class="tiny {{q.located ? '' : 'chip-warn'}}">定位结论：{{q.locateText}}</view>
+            </view>
+          </block>
+          <view wx:else class="tiny" style="margin-top:8rpx;">
+            这一项【没有】给出可在你材料中定位到的摘录，因此不作结论。
+          </view>
+        </view>
+      </view>
+
+      <!-- ② 匹配点与差异 -->
+      <view class="card" wx:if="{{view.hasMatches || view.hasGaps}}">
+        <view class="h2">二、匹配点与差异</view>
+        <block wx:if="{{view.hasMatches}}">
+          <view class="h3">匹配点</view>
+          <view class="tiny" wx:for="{{view.matches}}" wx:key="*this">· {{item}}</view>
+        </block>
+        <block wx:if="{{view.hasGaps}}">
+          <view class="h3" style="margin-top:12rpx;">差异 / 局限</view>
+          <view class="tiny" wx:for="{{view.gaps}}" wx:key="*this">· {{item}}</view>
+        </block>
+      </view>
+
+      <!-- ③ 拟引用主张核验 -->
+      <view class="card">
+        <view class="h2">三、拟引用主张的原文证据</view>
+        <view class="tiny">每条主张都要求给出原文短摘录、页码或章节、以及它来自哪份材料。
+          摘录定位失败时一律标为「证据不足」，不会用一句找不到出处的话去支持你的主张。</view>
+
+        <block wx:if="{{view.hasClaims}}">
+          <view wx:for="{{view.claims}}" wx:key="claimId" class="block">
+            <view class="status-line">
+              <text class="status-title">主张 {{item.claimId}}</text>
+              <text class="chip {{'chip-' + item.tone}}">{{item.verdictText}}</text>
+            </view>
+            <view class="cmp-line">你写的说法：{{item.claimText}}</view>
+
+            <block wx:if="{{item.hasQuotes}}">
+              <view class="h3" style="margin-top:10rpx;">原文摘录</view>
+              <view wx:for="{{item.quotes}}" wx:for-item="q" wx:key="text" class="check-detail">
+                <view class="cmp-line">「{{q.text}}」</view>
+                <view class="tiny">页码 / 章节：{{q.locator}}</view>
+                <view class="tiny">来源：{{q.materialLabel || '（未标注）'}}<block wx:if="{{q.materialKindText}}">（{{q.materialKindText}}）</block></view>
+                <view class="tiny">定位结论：{{q.locateText}}</view>
+              </view>
+            </block>
+            <view wx:else class="warnbox" style="margin-top:10rpx;">
+              没有给出任何可在你材料中定位到的摘录 → 证据不足。
+            </view>
+            <view wx:if="{{item.noLocatedQuote}}" class="warnbox" style="margin-top:8rpx;">
+              给出的摘录未能定位 → 已判为【证据不足】，不要用这条来支持该说法。
+            </view>
+            <view wx:if="{{item.downgraded}}" class="tiny" style="margin-top:8rpx;">{{item.downgradeText}}</view>
+            <view wx:if="{{item.hasNote}}" class="tiny" style="margin-top:6rpx;">说明：{{item.note}}</view>
+            <view class="tiny" style="margin-top:6rpx;">阅读范围：{{view.readingScope}}</view>
+          </view>
+        </block>
+
+        <view wx:else class="warnbox" style="margin-top:12rpx;">
+          本次没有核验到任何主张。可能你没有填写「拟支持说法」，或模型没能给出可在材料里定位的摘录。
+        </view>
+
+        <block wx:if="{{view.hasUnchecked}}">
+          <view class="h3" style="margin-top:12rpx;">未核验的主张（信息不足的可见状态）</view>
+          <view class="tiny" wx:for="{{view.uncheckedClaims}}" wx:key="claimId">
+            · {{item.claimText}} —— 本次没有给出可定位的摘录，未做判定。
+          </view>
+        </block>
+      </view>
+
+      <!-- ④ 用途：自动建议 + 可修改 -->
+      <view class="card">
+        <view class="h2">四、这条你怎么用</view>
+
+        <block wx:if="{{view.usage}}">
+          <view class="status-line">
+            <text class="status-title">当前用途</text>
+            <text class="chip {{'chip-' + view.usage.tone}}">{{view.usage.text}}</text>
+          </view>
+          <view class="tiny">来源：{{view.usage.sourceText}}<block wx:if="{{view.usage.at}}">｜{{view.usage.at}}</block></view>
+          <view wx:if="{{view.usage.why}}" class="tiny">分析服务理由：{{view.usage.why}}</view>
+          <view wx:if="{{view.usage.caveat}}" class="warnbox" style="margin-top:10rpx;">
+            限定条件：{{view.usage.caveat}}
+          </view>
+          <view wx:if="{{view.usage.isHuman && view.usage.reason}}" class="tiny" style="margin-top:6rpx;">
+            你写的理由：{{view.usage.reason}}
+          </view>
+        </block>
+        <view wx:else class="warnbox">
+          还没有用途结论：可能是分析未跑、材料不足，或分析服务认为材料不足以判断用途。
+        </view>
+
+        <view class="btn-row" style="margin-top:12rpx;">
+          <view id="a-usage-edit" class="btn btn-small btn-ghost" bindtap="toggleUsageEdit">
+            {{editingUsage ? '收起修改' : '修改用途'}}
+          </view>
+          <view id="a-usage-restore" class="btn btn-small btn-ghost" bindtap="restoreAiUsage">恢复分析服务建议</view>
+        </view>
+
+        <block wx:if="{{editingUsage}}">
+          <view class="h3" style="margin-top:14rpx;">选择用途</view>
+          <view
+            wx:for="{{view.usageOptions}}"
+            wx:key="value"
+            id="a-usage-{{item.value}}"
+            class="entry"
+            style="padding:16rpx;margin-bottom:10rpx;{{usageDraft === item.value ? 'border-color:#1f6feb;background:#f5f9ff;' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="pickUsage"
+          >
+            <view class="row">
+              <text class="text" style="font-weight:600;">{{item.text}}</text>
+              <text wx:if="{{usageDraft === item.value}}" class="chip chip-ok">已选</text>
+            </view>
+            <view class="tiny">{{item.desc}}</view>
+          </view>
+
+          <view class="field" style="margin-top:12rpx;">
+            <text class="field-label">修改理由（会与自动结论并列保存）</text>
+            <textarea
+              id="a-reason"
+              class="textarea"
+              bindinput="onReason"
+              value="{{reasonDraft}}"
+              placeholder="例如：研究对象同为老旧小区，但样本在夏热冬冷地区，冬季工况不同，只能借鉴实测方法，效果数字不能照搬。"
+              maxlength="500"
+              auto-height
+            />
+          </view>
+          <view id="a-usage-save" class="btn btn-primary btn-block" bindtap="saveUsage">保存我的用途决定</view>
+          <view class="tiny" style="margin-top:8rpx;">
+            保存后原分析结论完整保留，你的修改作为独立一层记录，两者都不会被对方覆盖。
+          </view>
+        </block>
+
+        <view class="btn-row" style="margin-top:14rpx;">
+          <view id="a-confirm" class="btn btn-small {{view.confirmed ? 'btn-ghost' : 'btn-primary'}}" bindtap="confirm">
+            {{view.confirmed ? '已确认（可再次确认）' : '确认并标记为已确认'}}
+          </view>
+        </view>
+        <view class="tiny">
+          自动结论本身永远是「未确认」；只有你点过确认才会显示已确认。课题换版后会重新标记为需重新分析。
+        </view>
+      </view>
+
+      <!-- ⑤ 下一轮检索建议：只给词，不给文献 -->
+      <view class="card" wx:if="{{view.hasNextQueries}}">
+        <view class="h2">五、下一轮可以查什么（只给检索词）</view>
+        <view class="tiny">下面是针对本次暴露出的缺口给出的检索词 / 检索式。
+          系统不会直接替你换成某篇「更合适」的文献——任何替代文献都必须同样经过核验才能用。</view>
+        <view wx:for="{{view.nextQueries}}" wx:key="idx" class="block">
+          <view class="cmp-line">[{{item.langText}}] {{item.text}}</view>
+          <view wx:if="{{item.why}}" class="tiny">为什么查这个：{{item.why}}</view>
+          <view class="btn-row" style="margin-top:8rpx;">
+            <view id="a-copy-{{item.idx}}" class="btn btn-small btn-ghost" data-text="{{item.text}}" bindtap="copyQuery">复制</view>
+            <view id="a-use-{{item.idx}}" class="btn btn-small btn-ghost" data-text="{{item.text}}" bindtap="useQuery">用它去检索</view>
+          </view>
+        </view>
+        <view class="tiny" style="margin-top:8rpx;">
+          点「用它去检索」会跳到「帮我找文献」，检索式会自动带入。检索回来的条目同样只呈现真实检索记录，
+          仍需走一遍身份核验与本页的适配核验。
+        </view>
+      </view>
+
+      <!-- ⑥ 被机器校验丢弃的内容（透明） -->
+      <view class="card" wx:if="{{view.hasDropped}}">
+        <view class="status-line">
+          <text class="status-title">被机器校验拦下的内容</text>
+          <text class="chip chip-gray">{{view.dropped.length}} 条</text>
+        </view>
+        <view class="tiny">以下内容没有出现在上面的结论里，如实列出原因，便于你判断是不是漏掉了什么。</view>
+        <view class="btn btn-small btn-ghost" style="margin-top:10rpx;" bindtap="toggleDropped">
+          {{showDropped ? '收起' : '展开'}}
+        </view>
+        <block wx:if="{{showDropped}}">
+          <view wx:for="{{view.dropped}}" wx:key="text" class="logrow">
+            · {{item.text}}｜原因：{{item.reason}}
+          </view>
+        </block>
+      </view>
+
+      <!-- ⑦ 导出 -->
+      <view class="card">
+        <view class="h2">导出这条记录</view>
+        <view class="tiny">导出的文本里会写清：逐项对照、摘录与定位结论、用途（含是不是你改过）、
+          以及「已确认 / 未确认」状态。没有确认过的不会写成已确认。</view>
+        <view class="btn-row" style="margin-top:12rpx;">
+          <view id="a-copy" class="btn btn-small" bindtap="copyRecord">复制本条适配记录</view>
+          <view id="a-discover" class="btn btn-small btn-ghost" bindtap="goDiscover">去「帮我找文献」</view>
+        </view>
+      </view>
+    </block>
+  </block>
+
+  <view class="tabbar-holder"></view>
+</view>

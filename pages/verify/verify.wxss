@@ -1,0 +1,22 @@
+
+/* ===== 第二阶段：身份核验相关 ===== */
+.divider {
+  height: 1rpx;
+  background: #e6eaef;
+  margin: 14rpx 0 10rpx;
+}
+.check-detail {
+  border-top: 1rpx solid #eceff3;
+  padding: 14rpx 0 6rpx;
+}
+.check-name {
+  font-size: 27rpx;
+  font-weight: 600;
+  flex: 1;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 10rpx;
+}

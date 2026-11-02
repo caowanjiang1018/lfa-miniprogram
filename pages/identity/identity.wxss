@@ -1,0 +1,22 @@
+page { background: #f4f6f8; }
+
+.check {
+  border-top: 1rpx solid #eceff3;
+  padding: 16rpx 0 4rpx;
+}
+.check:first-of-type { border-top: none; }
+.check-name { font-size: 27rpx; font-weight: 600; flex: 1; }
+
+.candidate {
+  border: 1rpx solid #dfe3e9;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  margin-top: 16rpx;
+  background: #fbfcfd;
+}
+.cand-rank {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1f6feb;
+  margin-right: 12rpx;
+}

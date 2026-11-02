@@ -1,0 +1,467 @@
+page {
+  background: #f4f6f8;
+  color: #1b1f24;
+  font-size: 28rpx;
+  line-height: 1.65;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Helvetica, sans-serif;
+}
+
+.page {
+  padding: 24rpx 24rpx 60rpx;
+}
+
+.card {
+  background: #ffffff;
+  border: 1rpx solid #e6e9ee;
+  border-radius: 18rpx;
+  padding: 26rpx;
+  margin-bottom: 24rpx;
+}
+
+.card-tight {
+  padding: 20rpx;
+}
+
+.h1 {
+  font-size: 34rpx;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.h2 {
+  font-size: 29rpx;
+  font-weight: 600;
+  margin: 24rpx 0 12rpx;
+}
+
+.h3 {
+  font-size: 26rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.muted {
+  color: #6b7280;
+  font-size: 25rpx;
+}
+
+.tiny {
+  color: #8b9098;
+  font-size: 23rpx;
+}
+
+.mono {
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.text {
+  font-size: 27rpx;
+  word-break: break-all;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.gap {
+  gap: 14rpx;
+}
+
+.hr {
+  height: 1rpx;
+  background: #edf0f4;
+  margin: 20rpx 0;
+}
+
+.field {
+  margin-bottom: 26rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  font-weight: 500;
+  margin-bottom: 10rpx;
+  display: block;
+}
+
+.field-hint {
+  color: #8b9098;
+  font-size: 23rpx;
+  margin-top: 6rpx;
+  display: block;
+}
+
+.input, .textarea {
+  background: #fbfcfd;
+  border: 1rpx solid #dfe3e9;
+  border-radius: 12rpx;
+  padding: 18rpx 18rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 单行输入框：给足高度，避免中文长文本被裁切 */
+.input {
+  min-height: 96rpx;
+}
+
+.textarea {
+  min-height: 140rpx;
+  padding-top: 20rpx;
+  padding-bottom: 20rpx;
+}
+
+.textarea-lg {
+  min-height: 260rpx;
+}
+
+.field-label-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.entry-active {
+  border-color: #7ea7f5;
+  background: #f7faff;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 26rpx;
+  border-radius: 14rpx;
+  border: 1rpx solid #d3d9e1;
+  background: #ffffff;
+  color: #1b1f24;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #ffffff;
+}
+
+.btn-ghost {
+  background: #f7f9fc;
+}
+
+/* 危险操作：红色描边 + 红字，不做实心红底，避免在小卡片里过于刺眼 */
+.btn-danger {
+  background: #ffffff;
+  border-color: #e8b4b0;
+  color: #b4232a;
+}
+
+.btn-small {
+  height: 60rpx;
+  line-height: 60rpx;
+  font-size: 25rpx;
+  padding: 0 20rpx;
+  border-radius: 10rpx;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.btn-block {
+  width: 100%;
+  margin-bottom: 16rpx;
+}
+
+.chip {
+  display: inline-block;
+  padding: 3rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  border: 1rpx solid transparent;
+  white-space: nowrap;
+}
+
+.chip-gray {
+  background: #f1f3f5;
+  color: #4b5563;
+  border-color: #e0e4e9;
+}
+
+.chip-info {
+  background: #e9f1ff;
+  color: #14508f;
+  border-color: #c3d9ff;
+}
+
+.chip-ok {
+  background: #e6f6ec;
+  color: #137a3c;
+  border-color: #b9e2c8;
+}
+
+.chip-warn {
+  background: #fff5e6;
+  color: #98550a;
+  border-color: #f7ddb1;
+}
+
+.chip-danger {
+  background: #fdecec;
+  color: #a8201f;
+  border-color: #f5c8c8;
+}
+
+.chip-purple {
+  background: #f2ecff;
+  color: #5533a8;
+  border-color: #ddd0ff;
+}
+
+/* ---- 第二阶段：5 类核验状态（文字 + 颜色双标识） ---- */
+
+/* 绿色：题录已核验无误 */
+.chip-orange {
+  background: #fff1e3;
+  color: #9a4a05;
+  border-color: #f8cfa4;
+}
+
+/* 黄色：多条匹配项，请人工甄别 */
+.chip-yellow {
+  background: #fff8db;
+  color: #7a5c05;
+  border-color: #f0e0a3;
+}
+
+/* 核验状态横幅 */
+.statusbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  border-radius: 12rpx;
+  padding: 16rpx 18rpx;
+  margin-bottom: 14rpx;
+  border: 1rpx solid transparent;
+}
+
+.statusbar-ok {
+  background: #eaf7ef;
+  border-color: #b9e2c8;
+  color: #137a3c;
+}
+
+.statusbar-orange {
+  background: #fff2e6;
+  border-color: #f8cfa4;
+  color: #9a4a05;
+}
+
+.statusbar-yellow {
+  background: #fffaea;
+  border-color: #f0e0a3;
+  color: #7a5c05;
+}
+
+.statusbar-gray {
+  background: #f1f3f5;
+  border-color: #e0e4e9;
+  color: #4b5563;
+}
+
+.statusbar-text {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.statusbar-desc {
+  font-size: 22rpx;
+  opacity: 0.85;
+}
+
+/* 逐字段比对 */
+.check-detail {
+  border: 1rpx solid #e6e9ee;
+  border-radius: 12rpx;
+  padding: 16rpx 18rpx;
+  margin-top: 12rpx;
+  background: #fcfdfe;
+}
+
+.check-name {
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.cmp-line {
+  font-size: 23rpx;
+  color: #5b6472;
+  word-break: break-all;
+}
+
+/* 候选条目 */
+.candidate {
+  border: 1rpx solid #e2e7ee;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  margin-top: 14rpx;
+  background: #ffffff;
+}
+
+.cand-rank {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #1f6feb;
+}
+
+/* 能力边界提示 */
+.boundarybox {
+  background: #f5f8fd;
+  border: 1rpx solid #dde6f4;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  color: #40506a;
+  font-size: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+/* 来源日志 */
+.logrow {
+  font-size: 22rpx;
+  color: #7b8290;
+  word-break: break-all;
+  margin-bottom: 4rpx;
+}
+
+.entry {
+  border: 1rpx solid #e2e7ee;
+  border-radius: 14rpx;
+  padding: 22rpx;
+  margin-bottom: 16rpx;
+  background: #ffffff;
+}
+
+.entry-title {
+  font-size: 29rpx;
+  font-weight: 600;
+}
+
+.entry-disabled {
+  opacity: 0.72;
+}
+
+.panel {
+  background: #f8fafc;
+  border: 1rpx dashed #d7dee8;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  margin-top: 16rpx;
+}
+
+.block {
+  border: 1rpx solid #e6e9ee;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  margin-bottom: 16rpx;
+  background: #ffffff;
+}
+
+.status-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.status-title {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.lst {
+  margin: 8rpx 0 0 0;
+  padding-left: 30rpx;
+}
+
+.lst-item {
+  font-size: 25rpx;
+  color: #4b5563;
+  margin-bottom: 4rpx;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+
+.empty {
+  text-align: center;
+  padding: 60rpx 20rpx;
+  color: #8b9098;
+  font-size: 26rpx;
+}
+
+.warnbox {
+  background: #fff8ec;
+  border: 1rpx solid #f4dcae;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  color: #8a5a06;
+  font-size: 25rpx;
+  margin-bottom: 20rpx;
+}
+
+.infobox {
+  background: #f5f8fd;
+  border: 1rpx solid #dde6f4;
+  border-radius: 12rpx;
+  padding: 18rpx 20rpx;
+  color: #40506a;
+  font-size: 25rpx;
+  margin-bottom: 20rpx;
+}
+
+.topicbar {
+  background: #ffffff;
+  border: 1rpx solid #e6e9ee;
+  border-radius: 14rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 20rpx;
+}
+
+.tabbar-holder {
+  height: 130rpx;
+}
+
+/* ---------- 核验记录：整条可点（进该文献专属详情页） ---------- */
+.card-tappable {
+  cursor: pointer;
+}
+.card-hover {
+  background: #f7faff;
+}
+.record-go {
+  margin-left: auto;
+  align-self: center;
+  font-size: 24rpx;
+  color: #1f6feb;
+  font-weight: 600;
+}

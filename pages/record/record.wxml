@@ -1,0 +1,106 @@
+<view class="page">
+
+  <view class="topicbar" wx:if="{{hasTopic}}">
+    <view class="row">
+      <text class="h3">所属课题：{{topic.name}}</text>
+      <text class="chip chip-info">第 {{topic.revision}} 版</text>
+    </view>
+    <text class="tiny">导出范围：仅本课题在本机小程序内产生的记录</text>
+  </view>
+
+  <view class="warnbox" wx:if="{{!hasTopic}}">
+    还没有课题。请先到「我的课题」填写保存。
+  </view>
+
+  <view class="card" wx:if="{{hasTopic}}">
+    <view class="row">
+      <text class="h1">核验记录</text>
+      <text class="chip chip-gray">共 {{total}} 条</text>
+    </view>
+    <view class="row" style="margin-top:10rpx;">
+      <text class="muted">已人工确认</text>
+      <text class="text">{{confirmedCount}} / {{total}}</text>
+    </view>
+    <view class="row" style="margin-top:6rpx;">
+      <text class="muted">初判需重新评估</text>
+      <text class="text">{{staleCount}} 条</text>
+    </view>
+    <view class="row" style="margin-top:6rpx;" wx:if="{{sampleCount}}">
+      <text class="muted">演示样例条目</text>
+      <text class="text">{{sampleCount}} 条</text>
+    </view>
+    <view class="btn-row">
+      <view id="btn-copy-all" class="btn btn-primary btn-small" bindtap="copyAll">复制完整记录</view>
+      <view id="btn-export" class="btn btn-small" bindtap="exportFile">导出文本文件</view>
+    </view>
+    <text class="tiny">导出内容包含：自动初判原文、你的每一次人工确认、来源清单与时间。自动结果与人工结果并列，互不覆盖。</text>
+  </view>
+
+  <view class="empty" wx:if="{{hasTopic && total === 0}}">
+    还没有记录。先在「核验卡」里完成一次人工确认，这里就会生成留档。
+    <view class="btn btn-small" style="margin-top:20rpx;" bindtap="goVerify">去看核验卡</view>
+  </view>
+
+  <block wx:for="{{items}}" wx:key="id" wx:for-item="it">
+    <!-- 整条可点：进入这条文献专属的核验卡详情页；内部按钮用 catchtap 防冒泡 -->
+    <view class="card card-tappable" hover-class="card-hover" bindtap="goDetail" data-id="{{it.id}}">
+      <view class="row">
+        <text class="h1">记录 {{it.no}}</text>
+        <view class="status-line">
+          <text class="chip {{it.isSample ? 'chip-warn' : 'chip-gray'}}">{{it.originLabel}}</text>
+          <text wx:if="{{it.stale}}" class="chip chip-warn">需重新评估</text>
+        </view>
+      </view>
+      <view class="text" style="margin-top:10rpx;font-weight:600;">{{it.title}}</view>
+      <view class="tiny">来源材料：{{it.sources}}</view>
+
+      <!-- 自动初判 -->
+      <view class="block" style="margin-top:14rpx;">
+        <view class="status-line">
+          <text class="status-title">自动输出（{{it.evalAt}}）</text>
+          <text class="chip chip-gray">{{it.evalHistoryCount}} 次历史</text>
+        </view>
+        <block wx:if="{{it.hasEval}}">
+          <view class="tiny" style="margin-top:8rpx;">基于课题第 {{it.evalRevision}} 版；规则 {{it.ev.ruleVersion}}</view>
+          <view class="tiny">1) 身份和题录：{{it.ev.identity.label}}</view>
+          <view class="tiny">2) 对本课题用途：{{it.ev.usage.label}}</view>
+          <view class="tiny">3) 对拟引用主张：{{it.ev.claim.label}}</view>
+        </block>
+        <view class="tiny" wx:else>尚未执行本地初判。</view>
+        <view wx:if="{{it.stale}}" class="tiny" style="color:#98550a;margin-top:6rpx;">该初判基于课题第 {{it.evalRevision}} 版，课题已更新，请到核验卡重判后再引用。</view>
+      </view>
+
+      <!-- 人工确认 -->
+      <view class="block">
+        <view class="status-line">
+          <text class="status-title">人工确认</text>
+          <text class="chip {{it.latestConfirm ? 'chip-purple' : 'chip-gray'}}">{{it.latestConfirm ? it.latestConfirm.decisionLabel : '未确认'}}</text>
+        </view>
+        <block wx:if="{{it.latestConfirm}}">
+          <view class="tiny" style="margin-top:8rpx;">{{it.latestConfirm.at}}｜基于课题第 {{it.latestConfirm.basedOnRevision}} 版</view>
+          <view class="tiny">对拟引用主张的判断：{{it.latestConfirm.claimVerdict}}</view>
+          <view class="muted">理由：{{it.latestConfirm.reason || '（未填写）'}}</view>
+          <view class="tiny">本项目共 {{it.confirmHistoryCount}} 次人工确认，历史全部保留。</view>
+        </block>
+        <view class="tiny" wx:else>还没有人工确认。回到核验卡选择「保留引用 / 作背景 / 借鉴方法 / 补证 / 暂不采用」并写理由。</view>
+      </view>
+
+      <view class="btn-row">
+        <view id="r-copy-{{it.index}}" class="btn btn-small" data-index="{{it.index}}" catchtap="copyOne">复制该条记录</view>
+        <view class="btn btn-small btn-ghost" catchtap="goVerify">去核验卡处理</view>
+        <view id="r-del-{{it.index}}" class="btn btn-small btn-danger"
+              data-id="{{it.id}}" data-title="{{it.title}}" catchtap="removeOne">删除这条</view>
+        <view class="record-go">详情 ›</view>
+      </view>
+    </view>
+  </block>
+
+  <view class="card" wx:if="{{hasTopic && total > 0}}">
+    <view class="h1">导出说明</view>
+    <view class="muted">
+      文本内容是纯文本清单，没有复杂排版，方便粘贴到开题报告、中期检查或课程设计文档的附录里。需要存档请自行保存，本机缓存被清理后不会自动恢复。
+    </view>
+  </view>
+
+  <view class="tabbar-holder"></view>
+</view>

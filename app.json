@@ -1,0 +1,41 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/topic/topic",
+    "pages/import/import",
+    "pages/discover/discover",
+    "pages/verify/verify",
+    "pages/record/record",
+    "pages/identity/identity",
+    "pages/adapt/adapt"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "文献适配助手",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f6f8"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#8a8f99",
+    "selectedColor": "#1f6feb",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "开始"
+      },
+      {
+        "pagePath": "pages/topic/topic",
+        "text": "我的课题"
+      },
+      {
+        "pagePath": "pages/record/record",
+        "text": "核验记录"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,11 @@
+<view class="ctab">
+  <view
+    wx:for="{{list}}"
+    wx:key="pagePath"
+    class="ctab-item {{selected === index ? 'ctab-on' : ''}}"
+    data-path="{{item.pagePath}}"
+    bindtap="onSwitch"
+  >
+    <text class="ctab-text">{{item.text}}</text>
+  </view>
+</view>

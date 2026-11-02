@@ -1,0 +1,180 @@
+<view class="page">
+
+  <!-- 所属课题常显 -->
+  <view class="topicbar" wx:if="{{hasTopic}}">
+    <view class="row">
+      <text class="h3">所属课题：{{topic.name}}</text>
+      <text class="chip chip-info">第 {{topic.revision}} 版</text>
+    </view>
+    <text class="tiny">所有核验结果都以该课题为依据</text>
+  </view>
+  <view class="warnbox" wx:else>
+    还没有课题。请先到「我的课题」填写并保存，再回来导入文献。
+  </view>
+
+  <view class="warnbox" wx:if="{{draftName}}">
+    你在「我的课题」里还有一个没保存的新课题「{{draftName}}」。这里导入的文献会归入下面显示的课题，要归入新课题请先去保存它。
+  </view>
+
+  <!-- ============ 批量导入模式 ============ -->
+  <block wx:if="{{mode === 'new'}}">
+    <view class="card">
+      <view class="h1">粘贴参考文献</view>
+      <text class="field-hint">支持中文、英文混排；一行一条。单次最多 10 条，多了请分批。</text>
+
+      <view class="panel" style="margin-top:14rpx;">
+        <text class="tiny">照下面这个样子粘贴（一行一条）：</text>
+        <view class="text" style="margin-top:10rpx;font-size:25rpx;color:#4b5563;">张三, 李四. 面向某某对象的某某方法研究[J]. 某某学报, 2021, 40(3): 12-20.</view>
+        <view class="text" style="margin-top:8rpx;font-size:25rpx;color:#4b5563;">Smith A, Lee B. Title of the paper. Journal Name, 2020.</view>
+        <text class="tiny" style="margin-top:10rpx;">不确定字段是否解析正确没关系，解析后可以逐条改。</text>
+      </view>
+
+      <textarea
+        id="import-paste"
+        class="textarea textarea-lg"
+        value="{{paste}}"
+        bindinput="onPasteInput"
+        placeholder="在这里粘贴你的参考文献清单，一行一条"
+        maxlength="-1"
+        show-confirm-bar="{{false}}"
+      />
+      <view class="row" style="margin-top:12rpx;">
+        <text class="tiny">已输入 {{lineCount}} 条</text>
+        <text class="tiny" wx:if="{{overLimit}}" style="color:#a8201f;">超出 10 条，将只解析前 10 条</text>
+      </view>
+      <view class="btn-row">
+        <view id="import-parse" class="btn btn-primary" bindtap="doParse">解析并核对</view>
+        <view class="btn btn-ghost" bindtap="clearPaste">清空</view>
+      </view>
+    </view>
+
+    <view class="card" wx:if="{{items.length}}">
+      <view class="row">
+        <text class="h1">核对字段（{{items.length}} 条）</text>
+        <text class="chip chip-warn">解析可能有误，请逐条确认</text>
+      </view>
+
+      <view wx:for="{{items}}" wx:key="raw" wx:for-item="it" wx:for-index="idx" class="block" style="margin-top:18rpx;">
+        <view class="row">
+          <text class="h3">条目 {{idx + 1}}</text>
+          <text class="tiny" style="color:#a8201f;" data-index="{{idx}}" bindtap="removeItem">移除本条</text>
+        </view>
+
+        <view wx:if="{{it.dupNote}}" class="warnbox" style="margin-top:10rpx;">
+          {{it.dupNote}}
+        </view>
+
+        <view class="panel" style="margin-top:10rpx;">
+          <text class="tiny">粘贴原文（保留不改）：</text>
+          <view class="text" style="font-size:24rpx;color:#55617a;">{{it.raw}}</view>
+        </view>
+
+        <view class="field" style="margin-top:16rpx;">
+          <text class="field-label">题名</text>
+          <textarea class="textarea" style="min-height:110rpx;" value="{{it.title}}" data-index="{{idx}}" data-key="title" bindinput="onItemField" maxlength="-1" auto-height show-confirm-bar="{{false}}" />
+        </view>
+        <view class="field">
+          <text class="field-label">作者</text>
+          <textarea class="textarea" style="min-height:100rpx;" value="{{it.authors}}" data-index="{{idx}}" data-key="authors" bindinput="onItemField" maxlength="-1" auto-height show-confirm-bar="{{false}}" />
+        </view>
+        <view class="field" style="width:260rpx;">
+          <text class="field-label">年份</text>
+          <input class="input" value="{{it.year}}" data-index="{{idx}}" data-key="year" bindinput="onItemField" />
+        </view>
+        <view class="field">
+          <text class="field-label">出处 / 期刊 / 会议</text>
+          <input class="input" value="{{it.venue}}" data-index="{{idx}}" data-key="venue" bindinput="onItemField" />
+        </view>
+        <view class="row" style="gap:14rpx;">
+          <view class="field" style="flex:1;">
+            <text class="field-label">DOI</text>
+            <input class="input" value="{{it.doi}}" data-index="{{idx}}" data-key="doi" bindinput="onItemField" placeholder="没有就留空" />
+          </view>
+        </view>
+        <view class="field">
+          <text class="field-label">原始链接</text>
+          <input class="input" value="{{it.evidence.link}}" data-index="{{idx}}" data-key="link" bindinput="onItemEvidence" placeholder="数据库页 / 出版社页 / PDF 链接" />
+        </view>
+
+        <view class="field">
+          <text class="field-label">摘要（可选，粘贴原文摘要）</text>
+          <textarea class="textarea" value="{{it.evidence.abstract}}" data-index="{{idx}}" data-key="abstract" bindinput="onItemEvidence" placeholder="粘贴摘要能显著提高第 2、3 项的判断质量" maxlength="-1" auto-height />
+        </view>
+        <view class="field" style="margin-bottom:0;">
+          <text class="field-label">原文节选（可选）</text>
+          <textarea class="textarea" value="{{it.evidence.excerpt}}" data-index="{{idx}}" data-key="excerpt" bindinput="onItemEvidence" placeholder="粘贴你要引用的那几句话，或结论段原文" maxlength="-1" auto-height />
+        </view>
+
+        <view wx:if="{{it.note}}" class="tiny" style="color:#98550a;">提示：{{it.note}}</view>
+      </view>
+
+      <view class="btn-row">
+        <view id="import-save" class="btn btn-primary" bindtap="saveAll">保存并生成核验卡</view>
+      </view>
+      <text class="tiny">保存后按当前课题（第 {{topic.revision}} 版）做本地初判；题录身份不会自动变成「已核实」。</text>
+    </view>
+  </block>
+
+  <!-- ============ 单条编辑 / 补充证据模式 ============ -->
+  <block wx:else>
+    <view class="card" wx:if="{{ref}}">
+      <view class="row">
+        <text class="h1">修正字段 / 补充证据</text>
+        <text class="chip {{ref.origin === 'sample' ? 'chip-warn' : 'chip-gray'}}">{{ref.origin === 'sample' ? '演示样例' : '我的粘贴'}}</text>
+      </view>
+      <view class="tiny" style="margin-top:8rpx;">修改后会自动按当前课题重新初判，但历史上的初判记录不会被覆盖。</view>
+
+      <view class="panel" style="margin-top:14rpx;">
+        <text class="tiny">粘贴原文（保留不改）：</text>
+        <view class="text" style="font-size:24rpx;color:#55617a;">{{ref.raw}}</view>
+      </view>
+
+      <view class="field" style="margin-top:18rpx;">
+        <text class="field-label">题名</text>
+        <textarea class="textarea" style="min-height:110rpx;" value="{{ref.title}}" data-key="title" bindinput="onRefField" maxlength="-1" auto-height show-confirm-bar="{{false}}" />
+      </view>
+      <view class="field">
+        <text class="field-label">作者</text>
+        <textarea class="textarea" style="min-height:100rpx;" value="{{ref.authors}}" data-key="authors" bindinput="onRefField" maxlength="-1" auto-height show-confirm-bar="{{false}}" />
+      </view>
+      <view class="field" style="width:260rpx;">
+        <text class="field-label">年份</text>
+        <input class="input" value="{{ref.year}}" data-key="year" bindinput="onRefField" />
+      </view>
+      <view class="field">
+        <text class="field-label">出处 / 期刊 / 会议</text>
+        <input class="input" value="{{ref.venue}}" data-key="venue" bindinput="onRefField" />
+      </view>
+      <view class="row" style="gap:14rpx;">
+        <view class="field" style="flex:1;">
+          <text class="field-label">DOI</text>
+          <input class="input" value="{{ref.doi}}" data-key="doi" bindinput="onRefField" />
+        </view>
+      </view>
+      <view class="field">
+        <text class="field-label">原始链接</text>
+        <input class="input" value="{{ref.evidence.link}}" data-key="link" bindinput="onRefEvidence" placeholder="数据库页 / 出版社页 / PDF 链接" />
+      </view>
+      <view class="field">
+        <text class="field-label">摘要</text>
+        <textarea class="textarea" value="{{ref.evidence.abstract}}" data-key="abstract" bindinput="onRefEvidence" placeholder="粘贴摘要" maxlength="-1" auto-height />
+      </view>
+      <view class="field">
+        <text class="field-label">原文节选</text>
+        <textarea id="edit-excerpt" class="textarea" value="{{ref.evidence.excerpt}}" data-key="excerpt" bindinput="onRefEvidence" placeholder="粘贴你要引用的原文片段" maxlength="-1" auto-height />
+      </view>
+      <view class="field" style="margin-bottom:0;">
+        <text class="field-label">备注</text>
+        <textarea class="textarea" value="{{ref.note}}" bindinput="onRefNote" placeholder="例如：这条是导师给的，还没找到原文" maxlength="300" auto-height />
+      </view>
+
+      <view class="btn-row">
+        <view id="edit-save" class="btn btn-primary" bindtap="saveEdit">保存并重新初判</view>
+        <view class="btn btn-ghost" bindtap="goVerify">返回核验卡</view>
+      </view>
+      <text class="tiny">提示：本阶段没有 OCR 与批量 PDF 解析，请手动粘贴摘要或节选。</text>
+    </view>
+  </block>
+
+  <view class="tabbar-holder"></view>
+</view>
